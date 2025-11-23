@@ -1,0 +1,201 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+}
+
+/* Loading screen container */
+#loading-slide {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #f5f5f5;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+/* Loader Circle Animation */
+.loader-circle {
+    width: 200px;
+    height: 200px;
+    border: 10px solid rgba(0, 0, 0, 0.2);
+    border-top: 10px solid #e63946;
+    border-radius: 50%;
+    animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Main loader text */
+.loading-text {
+    font-size: 4rem;
+    font-weight: bold;
+    letter-spacing: 4px;
+    margin-top: 20px;
+    background: linear-gradient(270deg, black, red, black); /* Right-to-left gradient */
+    background-size: 300%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: text-slide 1.5s linear infinite; /* Sync with circle spin */
+}
+
+@keyframes text-slide {
+    0% {
+        background-position: 0%; /* Start from the right */
+    }
+
+    100% {
+        background-position: 100%; /* Move to the left */
+    }
+}
+
+/* Quote below the loader text */
+.quote-text {
+    font-size: 1.5rem;
+    color: #555;
+    margin-top: 15px;
+    font-style: italic;
+}
+
+/* Responsive design for smaller screens */
+@media (max-width: 768px) {
+    .loader-circle {
+        width: 150px;
+        height: 150px;
+    }
+
+    .loading-text {
+        font-size: 3rem;
+    }
+
+    .quote-text {
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .loader-circle {
+        width: 100px;
+        height: 100px;
+    }
+
+    .loading-text {
+        font-size: 2rem;
+    }
+
+    .quote-text {
+        font-size: 0.9rem;
+    }
+}
+
+/* Ensure the section takes full width and height */
+#slideshow-section {
+    width: 100%;
+    height: 100vh;
+    /* Full screen height */
+    opacity: 1;
+    background-size: cover;
+    /* Keep the background image responsive */
+    background-position: center;
+    transition: opacity 1s ease-in-out;
+    /* Fade effect for the image */
+    position: relative;
+}
+
+/* Transparent Overlay */
+.slideshow-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    /* Semi-transparent black overlay */
+    transition: opacity 2.5s ease-in-out;
+    /* Smooth transition for the overlay */
+}
+
+#slideshow-items {
+    display: none;
+    /* Hide the raw data div */
+}
+.top-arrow {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, #e63946, #000);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
+    z-index: 1000;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+/* Show Button on Scroll */
+.top-arrow.show {
+    opacity: 0.6;
+    /* Slightly transparent when stationary */
+    visibility: visible;
+}
+
+/* Full opacity on hover */
+.top-arrow:hover {
+    opacity: 1;
+    transform: scale(1.1);
+    background: linear-gradient(135deg, #000, #e63946);
+}
+
+/* Arrow Icon */
+.top-arrow::before {
+    content: '\2191';
+    /* Unicode for Up Arrow */
+    font-size: 24px;
+}
+
+/* Smooth Scroll Behavior */
+html {
+    scroll-behavior: smooth;
+}
+
+.thumb-1 {
+    max-height: 200px;
+    width: 100%;
+    object-fit: cover;
+}
+
+.thumb-2 {
+    width: 510px !important;
+    height: 650px !important;
+    object-fit: cover;
+}
+
+@media (min-width: 700px) {
+    .thumb-1 {
+        max-height: 400px;
+        width: 100%;
+        object-fit: cover;
+    }
+}

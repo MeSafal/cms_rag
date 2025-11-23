@@ -1,0 +1,44 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('blogs', function (Blueprint $table) {
+            $table->id('blogs_id'); // Using id() for auto-incrementing primary key
+            $table->string('title')->nullable();
+            $table->string('subtitle')->nullable();
+            $table->string('author')->nullable();
+            $table->string('alias', 200)->nullable();
+            $table->integer('parent')->nullable();
+            $table->string('cover')->nullable();
+            $table->string('thumb')->nullable();
+            $table->text('description')->nullable();
+            $table->text('entries')->nullable();
+            $table->text('remarks')->nullable();
+            $table->string('seo_title')->nullable();
+            $table->string('seo_keyword')->nullable();
+            $table->text('seo_description')->nullable();
+            $table->integer('display_order')->nullable();
+            $table->integer('status')->default(1);
+            $table->string('createdby')->nullable();
+            $table->string('updatedby')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('blogs');
+    }
+};

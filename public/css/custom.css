@@ -1,0 +1,246 @@
+/* File upload container */
+.file-upload-container {
+    width: 100%;
+    max-width: 100%;
+    margin: 10 auto;
+    padding-top: 20px;
+    text-align: left;
+}
+
+/* File drop area */
+.file-drop-area {
+    position: relative;
+    border: 2px dashed #2a2727;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.3s ease;
+    /* Border animation */
+    background-color: #000000;
+    height: 100px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+/* Continuous moving background on hover */
+.file-drop-area:hover {
+    border-color: #007bff;
+    background-image: linear-gradient(45deg, #252424 25%, #030000 25%, #030000 50%, #252424 50%, #252424 75%, #030000 75%, #030000 100%);
+    background-size: 20px 20px;
+    -webkit-animation: stripes 6s linear infinite;
+    animation: stripes 6s linear infinite;
+}
+
+/* Dragging over effect with moving pattern */
+.file-drop-area.drag-over {
+    border-color: #007bff;
+    background-image: linear-gradient(45deg, #f3f3f3 25%, #d9e9ff 25%, #d9e9ff 50%, #f3f3f3 50%, #f3f3f3 75%, #d9e9ff 75%, #d9e9ff 100%);
+    background-size: 20px 20px;
+    animation: movePattern 1.5s linear infinite;
+    /* Faster animation */
+}
+
+/* Placeholder styling */
+.placeholder {
+    text-align: center;
+    color: #666;
+}
+
+.placeholder .icon {
+    margin-bottom: 10px;
+}
+
+.placeholder p {
+    margin: 0;
+    font-size: 14px;
+}
+
+/* Image preview styling */
+.image-preview {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.image-preview img {
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+/* Hover info (name and remove button) */
+.hover-info {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.image-preview:hover .hover-info {
+    opacity: 1;
+}
+
+.hover-info p {
+    margin: 0;
+    font-size: 14px;
+}
+
+.hover-info button {
+    background-color: #ff4d4d;
+    color: #531313;
+    border: none;
+    border-radius: 4px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.hover-info button:hover {
+    background-color: #ff0000;
+}
+
+/* Optional text */
+.optional {
+    font-size: 12px;
+    color: #999;
+}
+
+/* Keyframes for moving pattern */
+@-webkit-keyframes stripes {
+    from {
+        background-position: 0 0;
+    }
+
+    to {
+        background-position: 110px 30px;
+    }
+}
+
+/* Style for the icons in the dropdown */
+.dropdown-item i {
+    margin-right: 8px; /* Spacing between the icon and text */
+    width: 16px; /* Uniform width for all icons */
+    text-align: center;
+    z-index: 1050;
+
+}
+/* Base styles for the icons */
+.icon-btn {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 30px; /* Adjust for size */
+    height: 30px; /* Adjust for size */
+    border: 2px solid currentColor; /* Border color matches the text color */
+    border-radius: 50%; /* Makes the icon circular */
+    text-align: center;
+    font-size: 14px; /* Adjust icon size */
+    line-height: 1;
+    margin-right: 5px; /* Adds spacing between icons */
+    transition: all 0.3s ease;
+}
+
+/* Hover effect for icons */
+.icon-btn:hover {
+    background-color: rgba(20, 28, 253, 0.1); /* Light background on hover */
+    color: inherit;
+}
+
+
+.text-icon:hover
+{
+    color:  #6C7293;
+    font-weight: bold; /* Make the text bold */
+    text-decoration: underline;
+}
+
+.bg-v-shape {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to bottom right, red 50%, gray 50%);
+    /* clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 50% 50%); */
+    z-index: -1;
+}
+
+.login-form{
+    max-width: 2000px;
+    margin-left: 100px;
+    justify-items: center;
+}
+
+.text-elements{
+    justify-items: center !important;
+}
+
+.popover {
+    top: auto;
+    left: auto;
+}
+
+/* Wrapper for relative positioning */
+/* Default styling for larger devices (absolute positioning) */
+.icon-wrapper {
+    position: absolute;
+    text-align: left;
+}
+
+/* For smaller devices (relative positioning) */
+@media (max-width: 780px) {
+    .icon-wrapper {
+        position: relative;
+    }
+}
+
+
+/* Three-dot toggle button */
+.toggle-icons {
+    cursor: pointer;
+}
+
+
+/* Spacing between icons in the popup */
+.popup-container a {
+    display: inline-block;
+    margin-right: 10px;
+}
+
+/* Highlight the row when clicked on the move-up icon */
+tr.highlighted {
+    background-color: #1c2034;
+    border: 1px solid #191C24;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);  /* Optional shadow effect */
+}
+
+/* 3D Effect when row is moved up */
+tr.moving-up {
+    transform: translateY(-10px);  /* Moves the row up */
+    transition: transform 0.2s ease-in-out;  /* Smooth transition */
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2); /* Adds a shadow effect */
+}
+
+tr {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;  /* Smooth transition for other rows */
+}
+
+.move-up-icon:hover {
+    cursor: move;
+}
+

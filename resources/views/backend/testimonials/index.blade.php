@@ -1,0 +1,364 @@
+{{-- https://themewagon.github.io/darkpan/table.html     --}}
+@extends('backend.layout.app')
+@section('mainSection')
+            <div class="container-fluid pt-4 px-4">
+                <div class="row g-4">
+            <div class="col-xl-3 col-md-6">
+                <div class="card card-animate h-100">
+                    <div class="card-body d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <span class="me-2 fs-3 text-primary"><i class="bx bx-show"></i></span>
+                            <p class="mb-0 text-uppercase fw-medium text-muted">Active Testimonials</p>
+                        </div>
+                        <h4 class="mb-0 fs-22 fw-semibold">{{ $activeCount }}</h4>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6">
+                <div class="card card-animate h-100">
+                    <div class="card-body d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <span class="me-2 fs-3 text-primary"><i class="bx bx-pencil"></i></span>
+                            <p class="mb-0 text-uppercase fw-medium text-muted">Inactive Testimonials</p>
+                        </div>
+                        <h4 class="mb-0 fs-22 fw-semibold">{{ $inactiveCount }}</h4>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6">
+                <div class="card card-animate h-100">
+                    <div class="card-body d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <span class="me-2 fs-3 text-primary"><i class="bx bx-file"></i></span>
+                            <p class="mb-0 text-uppercase fw-medium text-muted">Total Testimonials</p>
+                        </div>
+                        <h4 class="mb-0 fs-22 fw-semibold">{{ $activeCount + $inactiveCount }}</h4>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6">
+                <div class="card card-animate h-100">
+                    <div class="card-body d-flex align-items-center justify-content-between">
+                        @can('testimonials.create')
+                            <div class="d-flex align-items-center">
+                                <span class="me-2 fs-3 text-primary"><i class="bx bx-plus"></i></span>
+                                <p class="mb-0 text-uppercase fw-medium text-muted">Create New</p>
+                            </div>
+                            <a href="{{ route('testimonials.create') }}" class="btn btn-primary">Create</a>
+                        @else
+                            <div class="d-flex align-items-center w-100 justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <span class="me-2 fs-3 text-primary"><i class="bx bx-error"></i></span>
+                                    <p class="mb-0 text-uppercase fw-medium text-muted">Create New</p>
+                                </div>
+                                <strong class="text-muted">Permission denied.</strong>
+                            </div>
+                        @endcan
+                    </div>
+                </div>
+            </div>
+        </div>
+            </div>
+
+            <!-- Sale & Revenue End -->
+            <!-- Table Start -->
+
+            <div class="container-fluid pt-4 px-4">
+                <div class="col-12">
+                    <div class="rounded h-100 p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h6 class="mb-0">Testimonials List</h6>
+                            <form class="d-none d-md-flex ms-4">
+                                {!! CreateText(
+                                    'search',
+                                    request('search', ''),
+                                    'Title',
+                                    [
+                                        'id' => 'searchInput',
+                                        'autofocus' => 'autofocus',
+                                        'placeholder' => 'Search',
+                                        'type' => 'search',
+                                    ],
+                                    '12',
+                                ) !!}
+                            </form>
+                            <div class="col-auto" style="padding: 5px;">
+                                <select class="form-select form-select-sm" id="rowsDropdown"
+                                    onchange="window.location.href=this.value">
+                                    {{-- Dynamically set the selected option based on the 'rows' query parameter --}}
+                                    <option
+                                        value="{{ route('testimonials.index', array_merge(request()->query(), ['rows' => 10])) }}"
+                                        {{ request('rows', 10) == 10 ? 'selected' : '' }}>10</option>
+                                    <option
+                                        value="{{ route('testimonials.index', array_merge(request()->query(), ['rows' => 25])) }}"
+                                        {{ request('rows') == 25 ? 'selected' : '' }}>25</option>
+                                    <option
+                                        value="{{ route('testimonials.index', array_merge(request()->query(), ['rows' => 50])) }}"
+                                        {{ request('rows') == 50 ? 'selected' : '' }}>50</option>
+                                    <option
+                                        value="{{ route('testimonials.index', array_merge(request()->query(), ['rows' => 100])) }}"
+                                        {{ request('rows') == 100 ? 'selected' : '' }}>100</option>
+                                    {{-- <option
+                                        value="{{ route('testimonials.index', array_merge(request()->query(), ['rows' => 500])) }}"
+                                        {{ request('rows') == 500 ? 'selected' : '' }}>500</option> --}}
+                                </select>
+                            </div>
+
+                        </div>
+                        <form id="update-order-form" action="{{ route('testimonials.updateOrder') }}" method="POST"
+                            style="display: none;">
+                            @csrf
+                            <input type="hidden" name="order" value="">
+                        </form>
+                        <div class="table-responsive">
+                             <table class="table reorderable-table" id="testimonials-table"
+                                data-url="{{ route('testimonials.updateOrder') }}"
+                                data-permission="{{ auth()->user()->can('testimonials.updateOrder') ? 'true' : 'false' }}">
+                                <thead>
+                                <thead>
+                                    <tr>
+                                        <th scope="col">#</th>
+                                        <th scope="col">Name</th>
+                                        <th scope="col">Thumb</th>
+                                        <th scope="col">Status</th>
+                                        @canany(['testimonials.view', 'testimonials.edit', 'testimonials.publish', 'testimonials.delete'])
+                                            <th scope="col">Action</th>
+                                        @endcanany
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($items as $item)
+                                        <tr data-id="{{ $item->testimonials_id }}" data-order="{{ $item->display_order }}">
+                                            <th scope="row"
+                                                class="{{ auth()->user()->can('testimonials.updateOrder') ? 'move-up-icon' : '' }}">
+                                                {{ $loop->index + 1 }}</th>
+                                            <td>{{ Str::limit($item->name, 50) }}</td>
+                                            <td>
+                                                 @if ($item->thumb)
+                                                    @foreach (explode(',', $item->thumb) as $coverImage)
+                                                        <img src="{{ asset(trim($coverImage)) }}"
+                                                            alt="{{ Str::limit($item->title, 10) }}"
+                                                            class="hoverable-image"
+                                                            style="width: 45px; height: 45px; object-fit: cover;">
+                                                    @endforeach
+                                                @else
+                                                    N/A
+                                                @endif
+                                            </td>
+                                           @can('testimonials.publish')
+                                                <td>
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input page-toggle" type="checkbox"
+                                                            data-page-id="{{ $item->testimonials_id }}"
+                                                            data-url-template="{{ route('testimonials.publish', ['id' => $item->testimonials_id, 'publish' => ':publish']) }}"
+                                                            {{ $item->status == 1 ? 'checked' : '' }}>
+                                                    </div>
+                                                </td>
+                                            @else
+                                                <td>
+                                                    @if ($item->status == 1)
+                                                        <span class="badge bg-success">Active</span>
+                                                    @else
+                                                        <span class="badge bg-danger">Inactive</span>
+                                                    @endif
+                                                </td>
+                                            @endcan
+                                            @canany(['testimonials.view', 'testimonials.edit', 'testimonials.publish',
+                                                'testimonials.delete'])
+                                                <td class="icon-wrapper">
+                                                    <div class="toggle-icons" title="Options">
+                                                        <i style="font-size: 20px;" class="fa fa-ellipsis-h"></i>
+                                                    </div>
+                                                    <div class="popup-container">
+                                                        @can('testimonials.view')
+                                                            <a href="{{ route('testimonials.view', ['id' => $item->testimonials_id]) }}"
+                                                                class="text-icon" title="View">
+                                                                <i style="font-size: 20px; padding-right: 10px;"
+                                                                    class="fa fa-eye"></i> View
+                                                            </a>
+                                                        @endcan
+                                                        @can('testimonials.edit')
+                                                            <a href="{{ route('testimonials.edit', ['id' => $item->testimonials_id]) }}"
+                                                                class="text-icon" title="Edit">
+                                                                <i style="font-size: 20px; padding-right: 10px;"
+                                                                    class="fa fa-edit"></i> Edit
+                                                            </a>
+                                                        @endcan
+                                                        @can('testimonials.delete')
+                                                            <a href="#" class="text-icon delete-btn"
+                                                                data-action="delete"
+                                                                data-url="{{ route('testimonials.delete', ['id' => $item->testimonials_id]) }}"
+                                                                title="Delete">
+                                                                <i style="font-size: 20px; padding-right: 10px;"
+                                                                    class="fa fa-trash"></i> Delete
+                                                            </a>
+                                                        @endcan
+                                                    </div>
+                                                </td>
+                                            @endcanany
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- Pagination with Custom View -->
+                        {{ $items->withQueryString()->links('vendor.pagination.bootstrap-5') }}
+
+                    </div>
+                </div>
+            </div>
+
+<script type="text/javascript" src="{{ asset('js/index.js') }}" id="jquery-core-js"></script>
+<script>
+
+    /*
+    ==============================
+    AJAX SEARCH FUNCTIONALITY
+    ==============================
+    Implements a delay-based search for filtering table data.
+    */
+
+    function bindSearchInput() {
+        $(document).ready(function() {
+            let typingTimer; // Timer for the typing delay
+            const typingDelay = 300; // Delay in milliseconds
+            let searchQueryCache = ""; // Cache the last search query to avoid unnecessary requests
+
+            // Listen for input in the search box
+            $('#searchInput').on('input', function() {
+                let searchQuery = $(this).val(); // Get the current search query
+                let rows = parseInt($('#rowsDropdown').val()) ||
+                    10; // Parse rows value as an integer or use default 10
+
+                // Clear the previous timer
+                clearTimeout(typingTimer);
+
+                // Update the table locally with the typed value (optional)
+                updateTableLocally(searchQuery);
+
+                // Set a new timer
+                typingTimer = setTimeout(function() {
+                    // Check if the query has changed before making the request
+                    if (searchQuery !== searchQueryCache) {
+                        searchQueryCache = searchQuery; // Update the cache
+                        if (searchQueryCache === '') {
+                            // Get current page and rows from the URL
+                            let urlParams = new URLSearchParams(window.location.search);
+                            let currentPage = urlParams.get('page') || 1; // Default to page 1
+                            let rows = urlParams.get('rows') || 10; // Default to 10 rows
+
+                            const params = [];
+                            if(currentPage !== 1) params.push(`page=${currentPage}`);
+                            if(rows !== 10) params.push(`rows=${rows}`);
+                            const query = params.length ? `?${params.join('&')}` : '';
+                            window.location.href = `/admin/testimonials${query}`;
+                        } else {
+                            fetchTableData(searchQuery, rows);
+                        }
+                    }
+                }, typingDelay);
+            });
+
+            /*
+            ==============================
+            FETCH TABLE DATA VIA AJAX
+            ==============================
+            Calls backend with search parameters and updates the table.
+            */
+            function fetchTableData(searchQuery, rows) {
+                $.ajax({
+                    url: '{{ route('testimonials.index') }}', // Laravel route
+                    method: 'GET',
+                    data: {
+                        search: searchQuery, // Send the search query
+                        rows: rows, // Send the rows per page
+                        page: 1 // Reset to the first page
+                    },
+                    success: function(response) {
+                        $('#testimonials-table tbody').html(response.item_html);
+                        $('#pagination-container').html(response.pagination_html);
+                        /*
+                        ==============================
+                        AFTER AJAX SUCCESS BIND FOR SEARCH
+                        ==============================
+                        After ajax call, the existing table is replaced by
+                        the record responded by the controller from table.blade.php
+                        whoose all responded rows are again bind here for all the
+                        functionality.
+                        */
+                        bindPublishToggle();
+                        initializeOrder();
+                        bindAliasEditing();
+                        bindPopupToggle();
+                        bindDragAndDropForTable('testimonials-table');
+                        bindActionButtons();
+                    },
+                    error: function(xhr, status, error) {
+                        console.error("Error fetching data:", error);
+                    }
+                });
+            }
+
+            /*
+        ==================
+        LOCAL UPDATE TABLE
+        ==================
+       Optional-- to update the table locally before ajax call
+       so filure in ajax call will still show the searched item
+       if available locally.
+        */
+
+            // Function to update the table locally (optional)
+            function updateTableLocally(query) {
+                $('#testimonials-table tbody tr').each(function() {
+                    const rowText = $(this).text().toLowerCase();
+                    if (rowText.includes(query.toLowerCase())) {
+                        $(this).show();
+                    } else {
+                        $(this).hide();
+                    }
+                });
+            }
+            /*
+                  ==============================
+                  FUNCTION TO HANDLE PAGENATION CLICK
+                  ==============================
+                 Handle pagination click events
+                  */
+            // Handle pagination click events
+            $(document).on('click', '.pagination a', function(e) {
+                e.preventDefault(); // Prevent the default link action
+                let page = $(this).attr('href').split('page=')[1]; // Get the page number
+                let searchQuery = $('#searchInput').val(); // Get the current search query
+                let rows = parseInt($('#rowsDropdown').val()) ||
+                    10; // Parse rows value as an integer or use default 10
+
+                fetchTableData(searchQuery, rows, page); // Fetch the data for the selected page
+            });
+        });
+    }
+</script>
+
+
+<script>
+    /*
+    ==============================
+    INITIAL BINDING ON DOCUMENT LOAD
+    ==============================
+    Call this function on initial page load so that existing toggles are bound.
+    If you load new content via AJAX ( templates), simply call bindPublishToggle()
+    after inserting the new HTML.
+    */
+    document.addEventListener('DOMContentLoaded', function() {
+        bindSearchInput();
+        bindAliasEditing();
+        initializeOrder();
+        bindDragAndDropForTable('testimonials-table');
+        bindPopupToggle();
+        bindPublishToggle();
+    });
+</script>
+@endsection

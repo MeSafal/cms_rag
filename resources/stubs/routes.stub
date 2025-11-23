@@ -1,0 +1,5 @@
+<?php
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\{{controllerName}};
+
+Route::adminResource('{{routeName}}', {{controllerName}}::class);

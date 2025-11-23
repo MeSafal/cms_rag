@@ -1,0 +1,67 @@
+
+<!-- resources/views/backend/coachings/create.blade.php -->
+@extends('backend.layout.app')
+@section('mainSection')
+    <div class="container-fluid pt-4 px-4">
+        <div class="row g-4">
+            <div class="col-sm-12 col-xl-8">
+                <div class="rounded h-100 p-4">
+
+                    <h5 class="mb-4">
+                        @if(isset($item))
+                            Edit coaching <span class="text-primary">{{ $item->title }}</span>
+                        @else
+                            Create coaching
+                        @endif
+                    </h5>
+                    <form
+                        action="{{ isset($item) ? route('coachings.update', $item->coachings_id) : route('coachings.store') }}"
+                        method="POST" enctype="multipart/form-data">
+                        @csrf
+                        <div class="row">
+                            {!! CreateText('title', old('title', isset($item) ? $item->title : ''), 'Title', [
+                                'aria-describedby' => 'titleHelp',
+                                'required' => 'required',
+                                'autofocus'=> 'autofocus'
+                            ]) !!}
+                            {!! CreateText('subtitle', old('subtitle', isset($item) ? $item->subtitle : ''), 'Subtitle', [
+                                'aria-describedby' => 'subtitleHelp',
+                            ]) !!}
+                            <div class="pt-4 col-xl-6 col-md-12">
+                                <label for="subticovertle" class="form-label">Cover Image</label>
+                                {!! CreateImage('cover', 'Cover Image', 'cover', 'holder', old('cover', isset($item) ? $item->cover : '')) !!}
+                            </div>
+                            <div class="pt-4 col-xl-6 col-md-12">
+                                <label for="thumb" class="form-label">Thumb Image</label>
+                                {!! CreateImage('thumb', 'Thumb', 'thumb', 'holder', old('thumb', isset($item) ? $item->thumb : '')) !!}
+                            </div>
+                        </div>
+                        <br>
+                        {!! CreateEditorInput(
+                            'description',
+                            old('description', isset($item) ? $item->description : ''),
+                            'Description',
+                            '',
+                            [],
+                        ) !!}
+                        {!! CreateTextArea(
+                            'remarks',
+                            old('remarks', isset($item) ? $item->remarks : ''),
+                            'Remarks',
+                            ['placeholder' => 'Leave a comment here'],
+                            'Remarks',
+                        ) !!}
+
+                </div>
+            </div>
+            <div class="col-sm-12 col-xl-4">
+                <x-templates :location="$location" />
+                <x-extra-button-card />
+                <x-extra-content-card :itemEdit="$item ?? null" />
+                <x-submit-card />
+            </div>
+            <x-seo-card :item="$item ?? null" />
+            </form>
+        </div>
+    </div>
+@endsection

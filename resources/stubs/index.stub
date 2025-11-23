@@ -1,0 +1,399 @@
+<!-- resources/views/backend/{{tableName}}/index.blade.php -->
+@extends('backend.layout.app')
+@section('mainSection')
+    <div class="container-fluid pt-4 px-4">
+        <div class="row g-4">
+            <div class="col-xl-3 col-md-6">
+                <div class="card card-animate h-100">
+                    <div class="card-body d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <span class="me-2 fs-3 text-primary"><i class="bx bx-show"></i></span>
+                            <p class="mb-0 text-uppercase fw-medium text-muted">Active {{modelName}}</p>
+                        </div>
+                        <h4 class="mb-0 fs-22 fw-semibold">{{ $activeCount }}</h4>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6">
+                <div class="card card-animate h-100">
+                    <div class="card-body d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <span class="me-2 fs-3 text-primary"><i class="bx bx-pencil"></i></span>
+                            <p class="mb-0 text-uppercase fw-medium text-muted">Inactive {{modelName}}</p>
+                        </div>
+                        <h4 class="mb-0 fs-22 fw-semibold">{{ $inactiveCount }}</h4>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6">
+                <div class="card card-animate h-100">
+                    <div class="card-body d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <span class="me-2 fs-3 text-primary"><i class="bx bx-file"></i></span>
+                            <p class="mb-0 text-uppercase fw-medium text-muted">Total {{modelName}}</p>
+                        </div>
+                        <h4 class="mb-0 fs-22 fw-semibold">{{ $activeCount + $inactiveCount }}</h4>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6">
+                <div class="card card-animate h-100">
+                    <div class="card-body d-flex align-items-center justify-content-between">
+                        @can('{{tableName}}.create')
+                            <div class="d-flex align-items-center">
+                                <span class="me-2 fs-3 text-primary"><i class="bx bx-plus"></i></span>
+                                <p class="mb-0 text-uppercase fw-medium text-muted">Create New</p>
+                            </div>
+                            <a href="{{ route('{{tableName}}.create') }}" class="btn btn-primary">Create</a>
+                        @else
+                            <div class="d-flex align-items-center w-100 justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <span class="me-2 fs-3 text-primary"><i class="bx bx-error"></i></span>
+                                    <p class="mb-0 text-uppercase fw-medium text-muted">Create New</p>
+                                </div>
+                                <strong class="text-muted">Permission denied.</strong>
+                            </div>
+                        @endcan
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="container-fluid pt-4 px-4">
+        <div class="col-12">
+            <div class="rounded h-100 p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h6 class="mb-0">{{modelName}} List</h6>
+                    <form class="d-none d-md-flex ms-4">
+                      {!! CreateText(
+                            'search',
+                            request('search', ''),
+                            'Title',
+                            [
+                                'id' => 'searchInput',
+                                'autofocus' => 'autofocus',
+                                'placeholder' => 'Search',
+                                'type' => 'search',
+                            ],
+                            '12',
+                        ) !!}                    </form>
+                    <div class="col-auto" style="padding: 5px;">
+                        <select class="form-select form-select-sm" id="rowsDropdown"
+                            onchange="window.location.href=this.value">
+                            {{-- Dynamically set the selected option based on the 'rows' query parameter --}}
+                            <option
+                                value="{{ route('{{tableName}}.index', array_merge(request()->query(), ['rows' => 10])) }}"
+                                {{ request('rows', 10) == 10 ? 'selected' : '' }}>10</option>
+                            <option
+                                value="{{ route('{{tableName}}.index', array_merge(request()->query(), ['rows' => 25])) }}"
+                                {{ request('rows') == 25 ? 'selected' : '' }}>25</option>
+                            <option
+                                value="{{ route('{{tableName}}.index', array_merge(request()->query(), ['rows' => 50])) }}"
+                                {{ request('rows') == 50 ? 'selected' : '' }}>50</option>
+                            <option
+                                value="{{ route('{{tableName}}.index', array_merge(request()->query(), ['rows' => 100])) }}"
+                                {{ request('rows') == 100 ? 'selected' : '' }}>100</option>
+                            {{-- <option
+                                value="{{ route('{{tableName}}.index', array_merge(request()->query(), ['rows' => 500])) }}"
+                                {{ request('rows') == 500 ? 'selected' : '' }}>500</option> --}}
+                        </select>
+                    </div>
+
+                </div>
+                <form id="update-order-form" action="{{ route('{{tableName}}.updateOrder') }}" method="POST"
+                    style="display: none;">
+                    @csrf
+                    <input type="hidden" name="order" value="">
+                </form>
+                <div class="table-responsive">
+                        <table class="table  table-borderless reorderable-table" id="{{tableName}}-table"
+                        data-url="{{ route('{{tableName}}.updateOrder') }}"
+                        data-permission="{{ auth()->user()->can('{{tableName}}.updateOrder') ? 'true' : 'false' }}">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">#</th>
+                                <th scope="col">Title</th>
+                                <th scope="col">Alias</th>
+                                <th scope="col">Cover</th>
+                                <th scope="col">Status</th>
+                                @canany(['{{tableName}}.view', '{{tableName}}.edit', '{{tableName}}.delete'])
+                                    <th scope="col">Action</th>
+                                @endcanany
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($items as $item)
+                                <tr data-id="{{ $item->{{tableName}}_id }}" data-order="{{ $item->display_order }}">
+                                    <th scope="row"
+                                        class="{{ auth()->user()->can('{{tableName}}.updateOrder') ? 'move-up-icon' : '' }}">
+                                        {{ $loop->index + 1 }}</th>
+                                    <td>{{ Str::limit($item->title, 50) }}</td>
+                                    @can('{{tableName}}.alias')
+                                        <td>
+                                            <span class="alias-text"
+                                                data-id="{{ $item->{{tableName}}_id }}"
+                                                data-url-template="{{ route('{{tableName}}.alias', ['id' => ':id']) }}"
+                                                style="cursor: pointer;">
+                                                {{ Str::limit($item->alias, 10) }}
+                                            </span>
+                                            <input type="text" class="alias-input d-none form-control"
+                                                data-id="{{ $item->{{tableName}}_id }}"
+                                                data-url-template="{{ route('{{tableName}}.alias', ['id' => ':id']) }}"
+                                                value="{{ $item->alias }}" style="width: 150px;">
+                                        </td>
+                                    @else
+                                        <td>
+                                            {{ Str::limit($item->alias, 10) }}
+                                        </td>
+                                    @endcan
+                                    <td>
+                                            @if ($item->cover)
+                                            @foreach (explode(',', $item->cover) as $coverImage)
+                                                <img src="{{ asset(trim($coverImage)) }}"
+                                                    alt="{{ Str::limit($item->title, 10) }}"
+                                                    class="hoverable-image"
+                                                    style="width: 45px; height: 45px; object-fit: cover;">
+                                            @endforeach
+                                        @else
+                                            N/A
+                                        @endif
+                                    </td>
+                                    @can('{{tableName}}.publish')
+                                        <td>
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input page-toggle" type="checkbox"
+                                                    data-page-id="{{ $item->{{tableName}}_id }}"
+                                                    data-url-template="{{ route('{{tableName}}.publish', ['id' => $item->{{tableName}}_id, 'publish' => ':publish']) }}"
+                                                    {{ $item->status == 1 ? 'checked' : '' }}>
+                                            </div>
+                                        </td>
+                                    @else
+                                        <td>
+                                            @if ($item->status == 1)
+                                                <span class="badge bg-success">Active</span>
+                                            @else
+                                                <span class="badge bg-danger">Inactive</span>
+                                            @endif
+                                        </td>
+                                    @endcan
+                                    @canany(['{{tableName}}.view', '{{tableName}}.edit', '{{tableName}}.publish',
+                                        '{{tableName}}.delete'])
+                                        <td class="icon-wrapper">
+                                            <div class="toggle-icons" title="Options">
+                                                <i style="font-size: 20px;" class="fa fa-ellipsis-h"></i>
+                                            </div>
+                                            <div class="popup-container">
+                                                @can('{{tableName}}.view')
+                                                    <a href="{{ route('{{tableName}}.view', ['id' => $item->{{tableName}}_id]) }}"
+                                                        class="text-icon" title="View">
+                                                        <i style="font-size: 20px; padding-right: 10px;"
+                                                            class="fa fa-eye"></i> View
+                                                    </a>
+                                                @endcan
+                                                @can('{{tableName}}.edit')
+                                                    <a href="{{ route('{{tableName}}.edit', ['id' => $item->{{tableName}}_id]) }}"
+                                                        class="text-icon" title="Edit">
+                                                        <i style="font-size: 20px; padding-right: 10px;"
+                                                            class="fa fa-edit"></i> Edit
+                                                    </a>
+                                                @endcan
+                                                @can('{{tableName}}.delete')
+                                                    <a href="#" class="text-icon delete-btn"
+                                                        data-action="delete"
+                                                        data-url="{{ route('{{tableName}}.delete', ['id' => $item->{{tableName}}_id]) }}"
+                                                        title="Delete">
+                                                        <i style="font-size: 20px; padding-right: 10px;"
+                                                            class="fa fa-trash"></i> Delete
+                                                    </a>
+                                                @endcan
+                                                {{-- @can('{{tableName}}.publish')
+                                                    @if ($item->status == 1)
+                                                        <a href="#" class="text-icon publish-btn"
+                                                            data-action="unpublish"
+                                                            data-url="{{ route('{{tableName}}.publish', ['id' => $item->{{tableName}}_id, 'publish' => -1]) }}"
+                                                            title="Unpublish">
+                                                            <i class="fa fa-ban"
+                                                                style="font-size: 20px; padding-right: 10px;"></i>
+                                                            Unpublish
+                                                        </a>
+                                                    @else
+                                                        <a href="#" class="text-icon publish-btn"
+                                                            data-action="publish"
+                                                            data-url="{{ route('{{tableName}}.publish', ['id' => $item->{{tableName}}_id, 'publish' => 1]) }}"
+                                                            title="Publish">
+                                                            <i class="fa fa-check"
+                                                                style="font-size: 20px; padding-right: 10px;"></i>
+                                                            Publish
+                                                        </a>
+                                                    @endif
+                                                @endcan --}}
+                                            </div>
+                                        </td>
+                                    @endcanany
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Pagination with Custom View -->
+                {{ $items->withQueryString()->links('vendor.pagination.bootstrap-5') }}
+
+            </div>
+        </div>
+    </div>
+
+    <script type="text/javascript" src="{{ asset('js/index.js') }}" id="jquery-core-js"></script>
+<script>
+
+    /*
+    ==============================
+    AJAX SEARCH FUNCTIONALITY
+    ==============================
+    Implements a delay-based search for filtering table data.
+    */
+
+    function bindSearchInput() {
+        $(document).ready(function() {
+            let typingTimer; // Timer for the typing delay
+            const typingDelay = 300; // Delay in milliseconds
+            let searchQueryCache = ""; // Cache the last search query to avoid unnecessary requests
+
+            // Listen for input in the search box
+            $('#searchInput').on('input', function() {
+                let searchQuery = $(this).val(); // Get the current search query
+                let rows = parseInt($('#rowsDropdown').val()) ||
+                    10; // Parse rows value as an integer or use default 10
+
+                // Clear the previous timer
+                clearTimeout(typingTimer);
+
+                // Update the table locally with the typed value (optional)
+                updateTableLocally(searchQuery);
+
+                // Set a new timer
+                typingTimer = setTimeout(function() {
+                    // Check if the query has changed before making the request
+                    if (searchQuery !== searchQueryCache) {
+                        searchQueryCache = searchQuery; // Update the cache
+                        if (searchQueryCache === '') {
+                            // Get current page and rows from the URL
+                            let urlParams = new URLSearchParams(window.location.search);
+                            let currentPage = urlParams.get('page') || 1; // Default to page 1
+                            let rows = urlParams.get('rows') || 10; // Default to 10 rows
+
+                            const params = [];
+                            if(currentPage !== 1) params.push(`page=${currentPage}`);
+                            if(rows !== 10) params.push(`rows=${rows}`);
+                            const query = params.length ? `?${params.join('&')}` : '';
+                            window.location.href = `/admin/{{tableName}}${query}`;
+                        } else {
+                            fetchTableData(searchQuery, rows);
+                        }
+                    }
+                }, typingDelay);
+            });
+
+            /*
+            ==============================
+            FETCH TABLE DATA VIA AJAX
+            ==============================
+            Calls backend with search parameters and updates the table.
+            */
+            function fetchTableData(searchQuery, rows) {
+                $.ajax({
+                    url: '{{ route('{{tableName}}.index') }}', // Laravel route
+                    method: 'GET',
+                    data: {
+                        search: searchQuery, // Send the search query
+                        rows: rows, // Send the rows per page
+                        page: 1 // Reset to the first page
+                    },
+                    success: function(response) {
+                        $('#{{tableName}}-table tbody').html(response.item_html);
+                        $('#pagination-container').html(response.pagination_html);
+                        /*
+                        ==============================
+                        AFTER AJAX SUCCESS BIND FOR SEARCH
+                        ==============================
+                        After ajax call, the existing table is replaced by
+                        the record responded by the controller from table.blade.php
+                        whoose all responded rows are again bind here for all the
+                        functionality.
+                        */
+                        bindPublishToggle();
+                        initializeOrder();
+                        bindAliasEditing();
+                        bindPopupToggle();
+                        bindDragAndDropForTable('{{tableName}}-table');
+                        bindActionButtons();
+                    },
+                    error: function(xhr, status, error) {
+                        console.error("Error fetching data:", error);
+                    }
+                });
+            }
+
+            /*
+        ==================
+        LOCAL UPDATE TABLE
+        ==================
+       Optional-- to update the table locally before ajax call
+       so filure in ajax call will still show the searched item
+       if available locally.
+        */
+
+            // Function to update the table locally (optional)
+            function updateTableLocally(query) {
+                $('#{{tableName}}-table tbody tr').each(function() {
+                    const rowText = $(this).text().toLowerCase();
+                    if (rowText.includes(query.toLowerCase())) {
+                        $(this).show();
+                    } else {
+                        $(this).hide();
+                    }
+                });
+            }
+            /*
+                  ==============================
+                  FUNCTION TO HANDLE PAGENATION CLICK
+                  ==============================
+                 Handle pagination click events
+                  */
+            // Handle pagination click events
+            $(document).on('click', '.pagination a', function(e) {
+                e.preventDefault(); // Prevent the default link action
+                let page = $(this).attr('href').split('page=')[1]; // Get the page number
+                let searchQuery = $('#searchInput').val(); // Get the current search query
+                let rows = parseInt($('#rowsDropdown').val()) ||
+                    10; // Parse rows value as an integer or use default 10
+
+                fetchTableData(searchQuery, rows, page); // Fetch the data for the selected page
+            });
+        });
+    }
+</script>
+
+
+<script>
+    /*
+    ==============================
+    INITIAL BINDING ON DOCUMENT LOAD
+    ==============================
+    Call this function on initial page load so that existing toggles are bound.
+    If you load new content via AJAX ( templates), simply call bindPublishToggle()
+    after inserting the new HTML.
+    */
+    document.addEventListener('DOMContentLoaded', function() {
+        bindSearchInput();
+        bindAliasEditing();
+        initializeOrder();
+        bindDragAndDropForTable('{{tableName}}-table');
+        bindPopupToggle();
+        bindPublishToggle();
+    });
+</script>
+
+@endsection

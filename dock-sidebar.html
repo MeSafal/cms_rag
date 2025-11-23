@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Scrollable Elliptical Sidebar - Purple Theme</title>
+  <!-- Bootstrap CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <!-- Bootstrap Icons -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+    rel="stylesheet"
+  />
+  <style>
+    /* Basic body style */
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #f0e6fa;
+      overflow: hidden;
+    }
+
+    /* Sidebar container: pinned on right, full viewport height */
+    .nav-container {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 250px;
+      height: 100vh;
+      z-index: 1000;
+      /* Initially, no pointer events except for the trigger */
+      pointer-events: none;
+    }
+    /* When active, the entire container is interactive */
+    .nav-container.active {
+      pointer-events: auto;
+    }
+
+    /* Trigger Icon - the only hoverable/clickable element before activation */
+    .trigger-icon {
+      position: absolute;
+      top: 50%;
+      right: 0;
+      transform: translateY(-50%);
+      width: 50px;
+      height: 50px;
+      background: #6a0dad; /* purple */
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      /* Always allow pointer events on trigger */
+      pointer-events: auto;
+      transition: transform 0.3s ease, background 0.3s ease;
+      z-index: 1001;
+    }
+    /* Flip the icon and change color when active */
+    .nav-container.active .trigger-icon {
+      transform: translateY(-50%) rotate(180deg);
+      background: #5a0ca3;
+    }
+
+    /* Outer scroller: occupies 90% vertical space, leaving 5% top/bottom padding */
+    .menu-wheel-viewport {
+      position: absolute;
+      top: 5%;
+      right: 50px; /* room for trigger */
+      bottom: 5%;
+      left: 0;
+      overflow-y: auto;    /* show scroll if items exceed space */
+      scrollbar-width: thin;
+    }
+    .menu-wheel-viewport::-webkit-scrollbar {
+      width: 6px;
+    }
+    .menu-wheel-viewport::-webkit-scrollbar-thumb {
+      background: #ccc;
+      border-radius: 3px;
+    }
+
+    /* The big "virtual" container that holds all items in an absolute layout */
+    .menu-wheel {
+      position: relative;
+      width: 100%;
+      /* We'll dynamically set this height in JS based on item count. */
+    }
+
+    /* Menu Items: fixed-size purple circles */
+    .menu-item {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      background: #6a0dad;
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      font-size: 0.7rem;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease, background 0.3s ease;
+    }
+    .menu-item:hover {
+      transform: scale(1.15);
+      z-index: 1002;
+      background: #5a0ca3;
+    }
+    .menu-item i {
+      font-size: 1.4rem;
+      margin-bottom: 2px;
+    }
+
+    /* Adjust sizes on small screens */
+    @media (max-width: 576px) {
+      .trigger-icon {
+        width: 45px;
+        height: 45px;
+      }
+      .menu-item {
+        width: 50px;
+        height: 50px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="nav-container" id="navContainer">
+    <!-- The trigger icon is always visible (hoverable/clickable) -->
+    <div class="trigger-icon" id="triggerIcon">
+      <i class="bi bi-chevron-left"></i>
+    </div>
+
+    <!-- Scrollable viewport (5% top/bottom) -->
+    <div class="menu-wheel-viewport" id="menuWheelViewport">
+      <!-- The "virtual" container that we absolutely position items in -->
+      <div class="menu-wheel" id="menuWheel">
+        <!-- Add as many menu items as you want -->
+        <a href="#" class="menu-item"><i class="bi bi-house-door"></i>Home</a>
+        <a href="#" class="menu-item"><i class="bi bi-person-circle"></i>Profile</a>
+        <a href="#" class="menu-item"><i class="bi bi-gear-wide"></i>Settings</a>
+        <a href="#" class="menu-item"><i class="bi bi-envelope-paper"></i>Messages</a>
+        <a href="#" class="menu-item"><i class="bi bi-heart-fill"></i>Favorites</a>
+        <a href="#" class="menu-item"><i class="bi bi-files"></i>Documents</a>
+        <a href="#" class="menu-item"><i class="bi bi-cloud-arrow-up"></i>Upload</a>
+        <a href="#" class="menu-item"><i class="bi bi-camera"></i>Photos</a>
+        <a href="#" class="menu-item"><i class="bi bi-music-note"></i>Music</a>
+        <a href="#" class="menu-item"><i class="bi bi-calendar"></i>Events</a>
+        <a href="#" class="menu-item"><i class="bi bi-archive"></i>Archive</a>
+        <a href="#" class="menu-item"><i class="bi bi-award"></i>Awards</a>
+        <a href="#" class="menu-item"><i class="bi bi-box-seam"></i>Boxes</a>
+        <!-- ... etc. (add more as needed) -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const navContainer = document.getElementById('navContainer');
+    const triggerIcon = document.getElementById('triggerIcon');
+    const menuWheelViewport = document.getElementById('menuWheelViewport');
+    const menuWheel = document.getElementById('menuWheel');
+    const items = Array.from(document.querySelectorAll('.menu-item'));
+
+    // =====================
+    // 1. OPEN/CLOSE LOGIC
+    // =====================
+    function openMenu() {
+      navContainer.classList.add('active');
+      positionMenuItems(); // calculate positions whenever it opens
+    }
+    function closeMenu() {
+      navContainer.classList.remove('active');
+    }
+
+    // a) Hover on trigger icon opens the menu
+    triggerIcon.addEventListener('mouseenter', () => {
+      openMenu();
+    });
+
+    // b) Click on trigger toggles the menu (for mobile/touch)
+    triggerIcon.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (navContainer.classList.contains('active')) {
+        closeMenu();
+      } else {
+        openMenu();
+      }
+    });
+
+    // c) Mouse leaving the entire container closes the menu
+    navContainer.addEventListener('mouseleave', () => {
+      closeMenu();
+    });
+
+    // d) Click outside the container closes the menu
+    document.addEventListener('click', (e) => {
+      if (!navContainer.contains(e.target)) {
+        closeMenu();
+      }
+    });
+
+    // ==================================
+    // 2. POSITIONING ITEMS ON A CURVE
+    // ==================================
+    function positionMenuItems() {
+      // We'll create a large "virtual" container so we can scroll.
+      // For n items, let's just set totalHeight = itemCount * spacing
+      // to ensure there's enough vertical space to place them from top to bottom.
+      const count = items.length;
+      const itemSpacing = 100; // you can adjust for more/less vertical spacing
+      const totalHeight = (count - 1) * itemSpacing + 200; // some padding
+      menuWheel.style.height = totalHeight + 'px';
+
+      // We'll define an "elliptical" shape from top=0 to bottom=totalHeight
+      // The final shape is purely conceptual: y from 0..totalHeight
+      // We offset x by a quadratic function that peaks around mid-height.
+      // Then the menuWheelViewport is what actually scrolls.
+
+      // For small vs large screens, define item size and max horizontal offset
+      const baseSize = window.innerWidth <= 576 ? 50 : 60;
+      const maxOffset = window.innerWidth <= 576 ? 70 : 30;
+
+      items.forEach((item, index) => {
+        // normalized t in [0..1]
+        const t = (count > 1) ? index / (count - 1) : 0.5;
+        const yPos = t * totalHeight;
+        // Quadratic offset
+        const offsetX = maxOffset * (4 * t * (1 - t));
+
+        // Position the item so it's centered at (yPos, offsetX)
+        item.style.top = (yPos - baseSize / 2) + 'px';
+        item.style.right = offsetX + 'px';
+      });
+    }
+
+    // Recalculate positions on window resize
+    window.addEventListener('resize', () => {
+      if (navContainer.classList.contains('active')) {
+        positionMenuItems();
+      }
+    });
+  </script>
+</body>
+</html>
