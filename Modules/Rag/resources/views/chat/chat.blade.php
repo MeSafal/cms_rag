@@ -414,9 +414,12 @@
                         error: 'error-message'
                     }[type];
 
+                    // Render markdown for bot messages
+                    const renderedContent = (type === 'bot') ? this.renderMarkdown(content) : content;
+
                     const message = $(`
                         <div class="message ${messageClass}" ${id ? `id="${id}"` : ''}>
-                            ${content}
+                            ${renderedContent}
                         </div>
                     `);
 
@@ -425,9 +428,22 @@
                     container.scrollTop(container[0].scrollHeight);
                 }
 
+                renderMarkdown(text) {
+                    return text
+                        // Links [text](url) → <a href="url" target="_blank">text</a>
+                        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color: #007bff; text-decoration: underline;">$1</a>')
+                        // Bold **text** → <b>text</b>
+                        .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+                        // Italic *text* → <i>text</i>
+                        .replace(/\*(.*?)\*/g, '<i>$1</i>')
+                        // Line breaks
+                        .replace(/\n/g, '<br>');
+                }
+
                 replaceLoading(content, loadingId) {
+                    const renderedContent = this.renderMarkdown(content);
                     $(`#${loadingId}`).replaceWith(
-                        `<div class="message bot-message">${content}</div>`
+                        `<div class="message bot-message">${renderedContent}</div>`
                     );
                     const container = $(this.config.selectors.messageContainer);
                     container.scrollTop(container[0].scrollHeight);

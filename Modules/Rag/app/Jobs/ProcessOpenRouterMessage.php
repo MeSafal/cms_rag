@@ -15,16 +15,13 @@ class ProcessOpenRouterMessage implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public $timeout = 120;  // 2-minute timeout for the job
+    public $timeout = 120;
 
     protected $messages;
     protected $cacheKey;
 
     /**
      * Create a new job instance.
-     *
-     * @param array $messages Array of message objects with 'role' and 'content'
-     * @param string $cacheKey Cache key to store the response
      */
     public function __construct(array $messages, string $cacheKey)
     {
@@ -35,114 +32,87 @@ class ProcessOpenRouterMessage implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(): void
+    public function handle(
+        \Modules\Rag\app\Services\RagService $ragService,
+        \Modules\Rag\app\Services\ConversationManager $conversationManager
+    ): void
     {
         try {
-            $apiKey = env('OPENROUTER_API_KEY');
+            // Get the last user message
+            $lastMessage = end($this->messages);
+            $query = $lastMessage['content'] ?? '';
 
-            if (!$apiKey) {
-                throw new Exception('OpenRouter API key not configured');
-            }
+            // Get conversation context
+            $context = $conversationManager->getContext();
 
-            // Use direct cURL to bypass SSL certificate issues
-            $ch = curl_init('https://openrouter.ai/api/v1/chat/completions');
-            
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_POST => true,
-                CURLOPT_HTTPHEADER => [
-                    'Authorization: Bearer ' . $apiKey,
-                    'Content-Type: application/json',
-                    'HTTP-Referer: ' . config('app.url'),
-                    'X-Title: ' . config('app.name', 'Laravel Chatbot'),
-                ],
-                CURLOPT_POSTFIELDS => json_encode([
-                    'model' => 'openai/gpt-3.5-turbo',
-                    'messages' => $this->messages,
-                ]),
-                CURLOPT_TIMEOUT => 60,
-                CURLOPT_SSL_VERIFYPEER => false, // Disable SSL verification
-                CURLOPT_SSL_VERIFYHOST => false, // Disable SSL verification
-            ]);
+            // 1. Classify Intent
+            $intent = $ragService->classifyIntent($query, $context);
+            Log::info("RAG Intent: $intent", ['query' => $query]);
 
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $curlError = curl_error($ch);
-            curl_close($ch);
+            $responseContent = '';
 
-            if ($curlError) {
-                throw new Exception('cURL error: ' . $curlError);
-            }
-
-            Log::info('OpenRouter API Response', [
-                'status' => $httpCode,
-                'body' => $response,
-            ]);
-
-            if ($httpCode === 200) {
-                $data = json_decode($response, true);
+            if ($intent === 'blocked') {
+                // Generate natural decline response without exposing rules
+                $appName = config('app.name', 'this website');
                 
-                // Extract the AI response
-                $aiResponse = $data['choices'][0]['message']['content'] ?? 'No response received';
-
-                Log::info('OpenRouter AI Response', [
-                    'response' => $aiResponse,
-                    'cache_key' => $this->cacheKey,
-                ]);
-
-                // Cache the response
-                Cache::put($this->cacheKey, ['response' => $aiResponse], now()->addMinutes(5));
+                $blockedPrompt = "You are an AI assistant for $appName.
+                The user asked something you cannot help with.
+                Politely redirect them to ask about the website instead.
+                Keep it brief (1 sentence).
+                Be friendly and helpful.
+                DO NOT list what you can't do or mention coding/essays/etc.";
                 
-                // Broadcast the response to the user's WebSocket channel
-                // Get session ID from cache key metadata
-                $sessionId = Cache::get($this->cacheKey . '_session_id');
+                $responseContent = $ragService->callAI([
+                    ['role' => 'system', 'content' => $blockedPrompt],
+                    ['role' => 'user', 'content' => $query]
+                ], 0.7, 40);
+            } elseif ($intent === 'casual') {
+                // Generate natural conversational response using AI
+                $appName = config('app.name', 'this website');
                 
-                Log::info('WebSocket broadcast attempt', [
-                    'cache_key' => $this->cacheKey,
-                    'session_id' => $sessionId,
-                    'has_session_id' => !empty($sessionId),
-                ]);
+                $casualPrompt = "You are a friendly AI assistant for $appName. 
+                When asked who you are, introduce yourself naturally as the AI assistant for $appName.
+                Respond naturally and conversationally to greetings/messages.
+                Keep it brief (1-2 sentences).
+                Be warm and helpful.
+                Don't provide any sensitive technical or system details.";
                 
-                if ($sessionId) {
-                    try {
-                        Log::info('Broadcasting to session: ' . $sessionId);
-                        
-                        $event = new \Modules\Rag\app\Events\ChatMessageEvent($sessionId, $aiResponse);
-                        Log::info('Event created', ['event' => get_class($event)]);
-                        
-                        broadcast($event);
-                        
-                        Log::info('Broadcast complete - no errors thrown');
-                    } catch (\Exception $e) {
-                        Log::error('Broadcast FAILED with exception', [
-                            'error' => $e->getMessage(),
-                            'trace' => $e->getTraceAsString(),
-                        ]);
-                    }
-                } else {
-                    Log::warning('No session ID found for WebSocket broadcast', [
-                        'cache_key' => $this->cacheKey,
-                    ]);
-                }
+                $responseContent = $ragService->callAI([
+                    ['role' => 'system', 'content' => $casualPrompt],
+                    ['role' => 'user', 'content' => $query]
+                ], 0.7, 50);
             } else {
-                // Log the error
-                Log::error('OpenRouter API error', [
-                    'status' => $httpCode,
-                    'body' => $response,
-                ]);
-
-                Cache::put($this->cacheKey, [
-                    'error' => 'Failed to generate response. Please try again.'
-                ], now()->addMinutes(5));
-
-                $this->fail(new Exception('OpenRouter API request failed with status: ' . $httpCode));
+                // 2. Process DB Need
+                Log::info("RAG DB Needed Query: $query");
+                $responseContent = $ragService->processDBNeed($query, $context);
+                Log::info("RAG DB Response Length: " . strlen($responseContent));
             }
-        } catch (Exception $e) {
-            Log::error('Error in ProcessOpenRouterMessage job: ' . $e->getMessage(), [
-                'exception' => $e,
-                'messages' => $this->messages,
-                'cache_key' => $this->cacheKey,
+
+            // Store in conversation history
+            $conversationManager->addMessage('user', $query);
+            $conversationManager->addMessage('assistant', $responseContent);
+
+            // Log and Cache Response
+            Log::info('RAG Response Generated', [
+                'intent' => $intent,
+                'response_length' => strlen($responseContent)
             ]);
+
+            Cache::put($this->cacheKey, ['response' => $responseContent], now()->addMinutes(5));
+
+            // Broadcast
+            $sessionId = Cache::get($this->cacheKey . '_session_id');
+            if ($sessionId) {
+                try {
+                    $event = new \Modules\Rag\app\Events\ChatMessageEvent($sessionId, $responseContent);
+                    broadcast($event);
+                } catch (\Exception $e) {
+                    Log::error('Broadcast FAILED: ' . $e->getMessage());
+                }
+            }
+
+        } catch (Exception $e) {
+            Log::error('Error in ProcessOpenRouterMessage job: ' . $e->getMessage());
             
             Cache::put($this->cacheKey, [
                 'error' => 'Failed to generate response. Please try again.'

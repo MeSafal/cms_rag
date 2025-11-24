@@ -1,0 +1,38 @@
+You are an expert technical writer and software engineer. I have a Flutter project that I need documentation for.
+
+Please generate TWO separate Markdown files based on the project details below.
+
+**Project Name:** [INSERT PROJECT NAME]
+**App Description:** [INSERT BRIEF DESCRIPTION OF WHAT THE APP DOES]
+**Key Features:** [LIST KEY FEATURES]
+**Tech Stack:** Flutter, Dart, [INSERT STATE MANAGEMENT: e.g., BLoC, Riverpod, Provider], [INSERT OTHER TECH: e.g., Firebase, SQLite, Dio]
+
+---
+
+### File 1: `README_Internal.md` (For Developers & Maintenance)
+**Goal:** A comprehensive technical guide for a new developer joining the team.
+**Structure:**
+1.  **Project Overview:** Technical summary of the architecture (e.g., Clean Architecture, MVVM).
+2.  **Prerequisites:** Flutter version, Dart version, required tools (e.g., Android Studio, VS Code extensions).
+3.  **Setup & Installation:** Step-by-step guide to clone, install dependencies (`flutter pub get`), and run the app.
+4.  **Folder Structure:** A tree view explaining the purpose of key directories (`lib/core`, `lib/features`, `lib/data`, etc.).
+5.  **State Management:** Explanation of how state is handled (e.g., "We use BLoC for business logic...").
+6.  **Build & Release:** Commands to build APK/IPA (`flutter build apk --release`).
+7.  **Troubleshooting:** Common errors and fixes.
+
+---
+
+### File 2: `README_Showcase.md` (For GitHub Portfolio/Public)
+**Goal:** A visually appealing, high-level overview to impress recruiters or clients.
+**Structure:**
+1.  **Hook/Intro:** A catchy title and a 2-sentence summary of the problem the app solves.
+2.  **✨ Key Features:** Bullet points highlighting the best parts (e.g., "Offline Mode," "Real-time Sync").
+3.  **📱 Screenshots:** Placeholders for app screenshots (e.g., `![Home Screen](path/to/image.png)`).
+4.  **🛠 Tech Stack:** A clean list or table of technologies used (Flutter, Firebase, etc.).
+5.  **🏗 Architecture:** A brief, simplified explanation of the engineering (e.g., "Built with scalable Clean Architecture").
+6.  **🚀 Download/Demo:** Link to APK or video demo.
+7.  **🔮 Future Roadmap:** What's coming next.
+
+---
+
+Please write the content for both files now.
