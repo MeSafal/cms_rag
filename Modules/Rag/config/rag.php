@@ -21,6 +21,11 @@ return [
             'columns' => ['title', 'description', 'alias', 'author', 'created_at', 'updated_at'],
             'id_column' => 'blogs_id',
         ],
+        'countries' => [
+            'description' => 'countries, country information, number of countries with count() function',
+            'columns' => ['title', 'description'],
+            'id_column' => 'countries_id',
+        ],
     ],
 
     /*
@@ -31,6 +36,15 @@ return [
     'max_results' => 5,
     'max_retries' => 2,
     'query_timeout' => 5, // seconds
+
+    /*
+    |--------------------------------------------------------------------------
+    | Debug Mode
+    |--------------------------------------------------------------------------
+    | When enabled, returns raw JSON query parameters instead of executing
+    | database queries. Useful for Phase 3 testing.
+    */
+    'debug_mode' => env('RAG_DEBUG_MODE', false),
 
     /*
     |--------------------------------------------------------------------------

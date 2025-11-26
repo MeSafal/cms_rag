@@ -61,6 +61,10 @@ class SafeQueryBuilder
         // Start query
         $query = DB::table($table);
 
+        // AUTOMATIC STATUS FILTERING: Only show published content
+        $query->where('status', 1);
+        Log::info("Auto-applied status filter", ['table' => $table, 'status' => 1]);
+
         // Select only allowed columns
         $columns = $params['columns'] ?? ['*'];
         if ($columns !== ['*']) {
@@ -78,29 +82,42 @@ class SafeQueryBuilder
 
         // Apply WHERE conditions
         if (!empty($params['where'])) {
+            $likeConditions = [];
+            $otherConditions = [];
+
             foreach ($params['where'] as $condition) {
-                $column = $condition['column'] ?? null;
-                $operator = $condition['operator'] ?? '=';
-                $value = $condition['value'] ?? null;
-
-                if (!$column || !in_array($column, $allowedColumns)) {
-                    Log::warning("Invalid column in WHERE: $column");
-                    continue;
+                $operator = strtoupper($condition['operator'] ?? '=');
+                if (in_array($operator, ['LIKE', 'NOT LIKE'])) {
+                    $likeConditions[] = $condition;
+                } else {
+                    $otherConditions[] = $condition;
                 }
+            }
 
-                // Sanitize operator
-                $allowedOperators = ['=', '!=', '<', '>', '<=', '>=', 'LIKE', 'NOT LIKE'];
-                if (!in_array(strtoupper($operator), $allowedOperators)) {
-                    $operator = '=';
-                }
+            // 1. Apply strict filters (AND) - e.g. status=1, id=5
+            foreach ($otherConditions as $condition) {
+                $this->applyCondition($query, $condition, $allowedColumns);
+            }
 
-                $query->where($column, $operator, $value);
+            // 2. Apply search conditions (OR) - e.g. title LIKE %foo% OR description LIKE %foo%
+            if (!empty($likeConditions)) {
+                $query->where(function ($q) use ($likeConditions, $allowedColumns) {
+                    foreach ($likeConditions as $condition) {
+                        $this->applyCondition($q, $condition, $allowedColumns, 'or');
+                    }
+                });
             }
         }
 
         // Apply LIMIT
         $limit = min($params['limit'] ?? $this->maxResults, $this->maxResults);
         $query->limit($limit);
+
+        Log::info("Query built successfully", [
+            'table' => $table,
+            'limit' => $limit,
+            'where_count' => count($params['where'] ?? [])
+        ]);
 
         return $query;
     }
@@ -111,7 +128,31 @@ class SafeQueryBuilder
     public function executeQuery(Builder $query): array
     {
         try {
+            // Log the actual SQL query that will be executed
+            $sql = $query->toSql();
+            $bindings = $query->getBindings();
+            Log::info("🔍 Executing SQL Query", [
+                'sql' => $sql,
+                'bindings' => $bindings
+            ]);
+            
             $results = $query->get()->toArray();
+            
+            // Detailed logging of results
+            Log::info("📊 Query Results", [
+                'count' => count($results),
+                'has_data' => !empty($results)
+            ]);
+            
+            // Log actual data retrieved (first 2 records for debugging)
+            if (!empty($results)) {
+                $sampleData = array_slice($results, 0, 2);
+                Log::info("✅ Sample Data Retrieved", [
+                    'sample_records' => $sampleData
+                ]);
+            } else {
+                Log::warning("⚠️ No data found in database matching criteria");
+            }
             
             return [
                 'success' => true,
@@ -119,7 +160,10 @@ class SafeQueryBuilder
                 'data' => $results,
             ];
         } catch (Exception $e) {
-            Log::error("Query execution failed: " . $e->getMessage());
+            Log::error("❌ Query execution failed", [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -147,5 +191,52 @@ class SafeQueryBuilder
             $schema .= "Cols: " . implode(', ', $config['columns']) . "\n\n";
         }
         return $schema;
+    }
+
+    /**
+     * Helper to apply a single condition to the query
+     */
+    protected function applyCondition($query, $condition, $allowedColumns, $boolean = 'and')
+    {
+        $column = $condition['column'] ?? null;
+        $operator = strtoupper($condition['operator'] ?? '=');
+        $value = $condition['value'] ?? null;
+
+        if (!$column || !in_array($column, $allowedColumns)) {
+            Log::warning("Invalid column in WHERE: $column");
+            return;
+        }
+
+        // Sanitize operator
+        $allowedOperators = ['=', '!=', '<', '>', '<=', '>=', 'LIKE', 'NOT LIKE', 'IN', 'NOT IN'];
+        if (!in_array($operator, $allowedOperators)) {
+            $operator = '=';
+        }
+
+        // Handle IN / NOT IN
+        if (in_array($operator, ['IN', 'NOT IN'])) {
+            if (is_string($value)) {
+                $value = array_map('trim', explode(',', $value));
+            }
+            if (!is_array($value)) {
+                $value = [$value];
+            }
+
+            if ($operator === 'IN') {
+                $query->whereIn($column, $value, $boolean);
+            } else {
+                $query->whereNotIn($column, $value, $boolean);
+            }
+        } else {
+            // Standard operators
+            $query->where($column, $operator, $value, $boolean);
+        }
+        
+        Log::info("Applied WHERE condition", [
+            'column' => $column,
+            'operator' => $operator,
+            'value' => $value,
+            'boolean' => $boolean
+        ]);
     }
 }
