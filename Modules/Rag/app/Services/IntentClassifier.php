@@ -78,7 +78,17 @@ class IntentClassifier
             }
             
             // Look for assistant responses that answered this query
-            if ($turn['role'] === 'assistant' && strlen($turn['content']) > 50) {
+            if ($turn['role'] === 'assistant') {
+                // Ignore short responses, "not found" messages, or polite refusals
+                $content = $turn['content'];
+                if (strlen($content) < 100 || 
+                    str_contains($content, 'No information found') ||
+                    str_contains($content, "I'm sorry, but I can't") ||
+                    str_contains($content, "I don't have specific information")
+                ) {
+                    continue;
+                }
+                
                 // If assistant gave a substantial answer recently
                 // and user is asking similar question, use context
                 return true;

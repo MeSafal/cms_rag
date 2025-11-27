@@ -24,7 +24,7 @@ return [
         ],
         'teams' => [
             'description' => 'Team members and their roles.',
-            'columns' => ['name', 'email', 'phone', 'bio'],
+            'columns' => ['name', 'email', 'phone', 'bio', 'role_name'],
             'id_column' => 'id',
         ],
         'coachings' => [
@@ -50,7 +50,7 @@ return [
     'embeddings' => [
         'model' => 'openai/text-embedding-3-small',
         'dimensions' => 1536,
-        'similarity_threshold' => 0.3, // Lower = more results
+        'similarity_threshold' => 0.15, // Lowered to allow fuzzy matches/typos
         'top_k' => 20, // Number of similar embeddings to retrieve
     ],
 
@@ -89,6 +89,11 @@ return [
 'casual': ONLY greetings (hi, hello, how are you, thanks, bye)
 'db_needed': Queries about THIS company/website/organization - its content, services, team, information, About Us, mission, etc.
 'blocked': EVERYTHING ELSE (coding help, general knowledge, essays, unrelated topics, etc.)
+
+IMPORTANT:
+- If user asks about 'managing director', 'ceo', 'founder', 'team', 'staff' -> 'db_needed'
+- If user asks about 'code', 'programming', 'essay', 'math', 'history' -> 'blocked'
+- If user asks 'who are you' -> 'casual'
 
 Default to 'blocked' if unsure.
 Respond with ONLY the category name.",

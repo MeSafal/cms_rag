@@ -85,7 +85,7 @@ class ProcessOpenRouterMessage implements ShouldQueue
 
         } catch (Exception $e) {
             Log::error('Error in ProcessOpenRouterMessage job: ' . $e->getMessage());
-            
+
             Cache::put($this->cacheKey, [
                 'error' => 'Failed to generate response. Please try again.'
             ], now()->addMinutes(5));

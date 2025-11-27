@@ -82,19 +82,24 @@ class DatabaseService
             'counts' => array_map('count', $byTable)
         ]);
         
-        // Get best table (highest average similarity)
+        // Get best table (highest MAX similarity)
         $bestTable = null;
-        $bestAvg = 0;
+        $bestScore = 0;
+        
         foreach ($byTable as $table => $tableMatches) {
-            $avg = array_sum(array_column($tableMatches, 'similarity')) / count($tableMatches);
+            // Use the highest similarity score found for this table
+            // This is better for specific queries (e.g. finding one person in teams)
+            // vs general queries (e.g. finding multiple services)
+            $maxScore = max(array_column($tableMatches, 'similarity'));
+            
             Log::info("Table similarity", [
                 'table' => $table,
-                'avg_similarity' => $avg,
+                'max_score' => $maxScore,
                 'match_count' => count($tableMatches)
             ]);
             
-            if ($avg > $bestAvg) {
-                $bestAvg = $avg;
+            if ($maxScore > $bestScore) {
+                $bestScore = $maxScore;
                 $bestTable = $table;
             }
         }
