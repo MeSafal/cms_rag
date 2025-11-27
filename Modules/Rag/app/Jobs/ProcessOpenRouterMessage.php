@@ -9,20 +9,19 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Modules\Rag\app\Services\IntentClassifier;
+use Modules\Rag\app\Services\ResponseService;
+use Modules\Rag\app\Services\DatabaseService;
+use Modules\Rag\app\Services\ConversationManager;
 use Exception;
 
 class ProcessOpenRouterMessage implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public $timeout = 120;
-
     protected $messages;
     protected $cacheKey;
 
-    /**
-     * Create a new job instance.
-     */
     public function __construct(array $messages, string $cacheKey)
     {
         $this->messages = $messages;
@@ -33,8 +32,10 @@ class ProcessOpenRouterMessage implements ShouldQueue
      * Execute the job.
      */
     public function handle(
-        \Modules\Rag\app\Services\RagService $ragService,
-        \Modules\Rag\app\Services\ConversationManager $conversationManager
+        IntentClassifier $intentClassifier,
+        ResponseService $responseService,
+        DatabaseService $databaseService,
+        ConversationManager $conversationManager
     ): void
     {
         try {
@@ -43,56 +44,27 @@ class ProcessOpenRouterMessage implements ShouldQueue
             $query = $lastMessage['content'] ?? '';
 
             // Get conversation context
-            $context = $conversationManager->getContext();
+            $conversationContext = $conversationManager->getContext();
 
             // 1. Classify Intent
-            $intent = $ragService->classifyIntent($query, $context);
+            $intent = $intentClassifier->classify($query, $conversationContext);
             Log::info("RAG Intent: $intent", ['query' => $query]);
 
-            $responseContent = '';
-
-            if ($intent === 'blocked') {
-                // Generate natural decline response without exposing rules
-                $appName = config('app.name', 'this website');
-                
-                $blockedPrompt = "You are an AI assistant for $appName.
-                The user asked something you cannot help with.
-                Politely redirect them to ask about the website instead.
-                Keep it brief (1 sentence).
-                Be friendly and helpful.
-                DO NOT list what you can't do or mention coding/essays/etc.";
-                
-                $responseContent = $ragService->callAI([
-                    ['role' => 'system', 'content' => $blockedPrompt],
-                    ['role' => 'user', 'content' => $query]
-                ], 0.7, 40);
-            } elseif ($intent === 'casual') {
-                // Generate natural conversational response using AI
-                $appName = config('app.name', 'this website');
-                
-                $casualPrompt = "You are a friendly AI assistant for $appName. 
-                When asked who you are, introduce yourself naturally as the AI assistant for $appName.
-                Respond naturally and conversationally to greetings/messages.
-                Keep it brief (1-2 sentences).
-                Be warm and helpful.
-                Don't provide any sensitive technical or system details.";
-                
-                $responseContent = $ragService->callAI([
-                    ['role' => 'system', 'content' => $casualPrompt],
-                    ['role' => 'user', 'content' => $query]
-                ], 0.7, 50);
+            // 2. Generate Response based on intent
+            if ($intent === 'casual') {
+                $responseContent = $responseService->generateCasualResponse($query, $conversationContext);
+            } elseif ($intent === 'blocked') {
+                $responseContent = $responseService->generateBlockedResponse($query);
             } else {
-                // 2. Process DB Need
-                Log::info("RAG DB Needed Query: $query");
-                $responseContent = $ragService->processDBNeed($query, $context);
-                Log::info("RAG DB Response Length: " . strlen($responseContent));
+                // db_needed
+                $responseContent = $databaseService->processQuery($query, $conversationContext);
             }
 
-            // Store in conversation history
+            // 3. Store in conversation history
             $conversationManager->addMessage('user', $query);
             $conversationManager->addMessage('assistant', $responseContent);
 
-            // Log and Cache Response
+            // 4. Log and Cache Response
             Log::info('RAG Response Generated', [
                 'intent' => $intent,
                 'response_length' => strlen($responseContent)
@@ -100,7 +72,7 @@ class ProcessOpenRouterMessage implements ShouldQueue
 
             Cache::put($this->cacheKey, ['response' => $responseContent], now()->addMinutes(5));
 
-            // Broadcast
+            // 5. Broadcast via WebSocket
             $sessionId = Cache::get($this->cacheKey . '_session_id');
             if ($sessionId) {
                 try {

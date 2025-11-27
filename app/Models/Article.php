@@ -6,10 +6,11 @@ use App\Traits\ModelScopes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use Modules\Rag\app\Traits\HasEmbeddings;  // ← ADD THIS
 
 class Article extends Model
 {
-    use HasFactory, ModelScopes;
+    use HasFactory, ModelScopes, HasEmbeddings;  // ← ADD HasEmbeddings here
 
     // Dynamically set the table name using the prefix from .env
     protected $table;

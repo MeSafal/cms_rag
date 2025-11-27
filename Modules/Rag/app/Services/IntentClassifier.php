@@ -1,0 +1,138 @@
+<?php
+
+namespace Modules\Rag\app\Services;
+
+use Illuminate\Support\Facades\Log;
+
+class IntentClassifier
+{
+    /**
+     * Classify user query into casual, db_needed, or blocked
+     */
+    public function classify(string $query, array $conversationContext = []): string
+    {
+        if ($this->isObviouslyBlocked($query)) {
+            return 'blocked';
+        }
+
+        $lowerQuery = strtolower(trim($query));
+        $appName = strtolower(config('app.name', ''));
+        
+        // Check if similar query was recently answered in context
+        if ($this->hasRecentAnswer($query, $conversationContext)) {
+            Log::info("Intent Classification (context exists): casual");
+            return 'casual';
+        }
+        
+        // Hardcoded greetings and identity questions from config
+        $casualPhrases = config('rag.casual_phrases', []);
+        
+        // Exact match
+        if (in_array($lowerQuery, $casualPhrases)) {
+            Log::info("Intent Classification (hardcoded - exact match): casual");
+            return 'casual';
+        }
+        
+        // Partial match for greetings like "hello there", "hi there"
+        foreach ($casualPhrases as $phrase) {
+            if (str_starts_with($lowerQuery, $phrase . ' ')) {
+                Log::info("Intent Classification (hardcoded - partial match '$phrase'): casual");
+                return 'casual';
+            }
+        }
+        
+        // Hardcoded site-related keywords from config
+        $siteKeywords = config('rag.site_keywords', []);
+        foreach ($siteKeywords as $keyword) {
+            if (str_contains($lowerQuery, $keyword)) {
+                Log::info("Intent Classification (hardcoded - site keyword): db_needed");
+                return 'db_needed';
+            }
+        }
+        
+        // Check if query mentions the app name
+        if ($appName && str_contains($lowerQuery, $appName)) {
+            Log::info("Intent Classification (hardcoded - app name '$appName'): db_needed");
+            return 'db_needed';
+        }
+
+        // Fallback to AI classification
+        return $this->classifyWithAI($query, $conversationContext);
+    }
+
+    /**
+     * Check if query was recently answered in conversation context
+     */
+    protected function hasRecentAnswer(string $query, array $context): bool
+    {
+        if (empty($context)) {
+            return false;
+        }
+
+        // Get last few turns
+        $recentTurns = array_slice($context, -4);
+        
+        foreach ($recentTurns as $turn) {
+            if (!isset($turn['role']) || !isset($turn['content'])) {
+                continue;
+            }
+            
+            // Look for assistant responses that answered this query
+            if ($turn['role'] === 'assistant' && strlen($turn['content']) > 50) {
+                // If assistant gave a substantial answer recently
+                // and user is asking similar question, use context
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * Use AI to classify intent
+     */
+    protected function classifyWithAI(string $query, array $conversationContext): string
+    {
+        Log::info("Intent Classification Query: $query");
+        
+        $systemPrompt = config('rag.prompts.intent_classification');
+
+        $messages = [['role' => 'system', 'content' => $systemPrompt]];
+        
+        // Add conversation context
+        if (!empty($conversationContext)) {
+            $messages = array_merge($messages, array_slice($conversationContext, -4));
+        }
+        
+        $messages[] = ['role' => 'user', 'content' => $query];
+
+        $ragService = app(RagService::class);
+        $response = $ragService->callAI($messages, 0.1, 20);
+        $intent = trim(strtolower($response));
+        
+        Log::info("Intent Classification: $intent");
+        
+        // Validate and default to blocked
+        if (!in_array($intent, ['casual', 'db_needed', 'blocked'])) {
+            $intent = 'blocked';
+        }
+        
+        return $intent;
+    }
+
+    /**
+     * Check for obviously blocked queries using config
+     */
+    protected function isObviouslyBlocked(string $query): bool
+    {
+        $blockedTerms = config('rag.obvious_blocked_terms', []);
+        
+        foreach ($blockedTerms as $term) {
+            if (stripos($query, $term) !== false) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+}
