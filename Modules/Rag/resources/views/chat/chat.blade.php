@@ -183,6 +183,43 @@
             pointer-events: none;
             transition: all 0.3s ease;
         }
+
+        /* Thinking Card - Ultra Minimal */
+        .thinking-card {
+            font-size: 0.75em;
+            color: #999;
+            margin: 2px 0;
+        }
+
+        .thinking-card.collapsed {
+            cursor: pointer;
+        }
+
+        .thinking-card.collapsed:hover .thinking-header {
+            color: #007bff;
+        }
+
+        .thinking-card.collapsed .thinking-steps {
+            display: none;
+        }
+
+        .thinking-card.expanded .thinking-steps {
+            background: #f8f9fa;
+            border-left: 2px solid #007bff;
+            padding: 8px;
+            margin-top: 4px;
+            font-size: 0.85em;
+        }
+
+        .thinking-steps {
+            list-style: none;
+            padding-left: 0;
+            margin: 0;
+        }
+
+        .thinking-steps li {
+            margin-top: 3px;
+        }
     </style>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -298,272 +335,11 @@
         </div>
     </div>
 
-    <div class="chat-container">
-        <!-- Chat Icon -->
-        <div class="chat-icon" id="chat-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                fill="currentColor">
-                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
-            </svg>
-        </div>
-
-        <!-- Chat Window -->
-        <div class="chat-window" id="chat-window">
-            <div class="chat-header">
-                <h3>Chat Assistant</h3>
-                <button class="close-btn" id="close-chat">&times;</button>
-            </div>
-            <div class="chat-messages" id="chat-messages"></div>
-            <div class="chat-input">
-                <input type="text" id="user-input" placeholder="Type your message...">
-                <button id="send-btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-                        fill="currentColor">
-                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-                    </svg>
-                </button>
-            </div>
-        </div>
-    </div>
+    {{-- Reusable RAG chat widget component --}}
+    @include('rag::components.chat-widget')
     <!-- Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        /*==============
-        COPY FROM HERE (RAG Chat Module)
-        Required Dependencies: jQuery, Pusher.js
-        ================*/
-        (function() {
-            // 1. CONFIGURATION
-            // Adjust these selectors to match your frontend HTML
-            const RAG_CONFIG = {
-                selectors: {
-                    messageContainer: '#chat-messages', // Where messages will be appended
-                    inputField: '#user-input',          // Input field for user message
-                    sendButton: '#send-btn',            // Button to send message
-                    
-                    // Optional UI elements (can be null if not used)
-                    chatWindow: '#chat-window',         // Main chat container (for toggling)
-                    toggleButton: '#chat-icon',         // Button to open chat
-                    closeButton: '#close-chat'          // Button to close chat
-                },
-                endpoints: {
-                    send: '/chat/send',
-                    response: '/chat/response',
-                    csrfToken: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-                },
-                pusher: {
-                    key: 'qskwvj5qfsqqjsibjws6',
-                    host: 'localhost',
-                    port: 8080
-                }
-            };
-
-            // 2. CHAT LOGIC
-            class RagChat {
-                constructor(config) {
-                    this.config = config;
-                    this.pusherConnection = null;
-                    this.wsChannel = null;
-                    this.currentSessionId = null;
-                    this.pendingMessages = new Map();
-                    
-                    this.init();
-                }
-
-                init() {
-                    this.bindEvents();
-                }
-
-                bindEvents() {
-                    const s = this.config.selectors;
-                    
-                    // Send Message Events
-                    $(s.sendButton).on('click', () => this.sendMessage());
-                    $(s.inputField).on('keypress', (e) => {
-                        if (e.which == 13) this.sendMessage();
-                    });
-
-                    // Toggle Events (if elements exist)
-                    if ($(s.toggleButton).length) {
-                        $(s.toggleButton).on('click', () => this.toggleChat(true));
-                    }
-                    if ($(s.closeButton).length) {
-                        $(s.closeButton).on('click', () => this.toggleChat(false));
-                    }
-                }
-
-                toggleChat(show) {
-                    const s = this.config.selectors;
-                    $(s.toggleButton).toggleClass('scroll-hide', show);
-                    // Also hide blog button if it exists (custom for this page)
-                    $('#generate-blog-btn').toggleClass('scroll-hide', show);
-                    
-                    $(s.chatWindow).css('display', show ? 'flex' : 'none');
-                    if (show) {
-                        const container = $(s.messageContainer);
-                        container.scrollTop(container[0].scrollHeight);
-                        $(s.inputField).focus();
-                    }
-                }
-
-                appendMessage(content, type, id = '') {
-                    const messageClass = {
-                        user: 'user-message',
-                        bot: 'bot-message',
-                        loading: 'loading-message',
-                        error: 'error-message'
-                    }[type];
-
-                    // Render markdown for bot messages
-                    const renderedContent = (type === 'bot') ? this.renderMarkdown(content) : content;
-
-                    const message = $(`
-                        <div class="message ${messageClass}" ${id ? `id="${id}"` : ''}>
-                            ${renderedContent}
-                        </div>
-                    `);
-
-                    const container = $(this.config.selectors.messageContainer);
-                    container.append(message);
-                    container.scrollTop(container[0].scrollHeight);
-                }
-
-                renderMarkdown(text) {
-                    return text
-                        // Links [text](url) → <a href="url" target="_blank">text</a>
-                        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color: #007bff; text-decoration: underline;">$1</a>')
-                        // Bold **text** → <b>text</b>
-                        .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
-                        // Italic *text* → <i>text</i>
-                        .replace(/\*(.*?)\*/g, '<i>$1</i>')
-                        // Line breaks
-                        .replace(/\n/g, '<br>');
-                }
-
-                replaceLoading(content, loadingId) {
-                    const renderedContent = this.renderMarkdown(content);
-                    $(`#${loadingId}`).replaceWith(
-                        `<div class="message bot-message">${renderedContent}</div>`
-                    );
-                    const container = $(this.config.selectors.messageContainer);
-                    container.scrollTop(container[0].scrollHeight);
-                }
-
-                showError(message, loadingId) {
-                    $(`#${loadingId}`).replaceWith(
-                        `<div class="message error-message">${message}</div>`
-                    );
-                }
-
-                async sendMessage() {
-                    const input = $(this.config.selectors.inputField);
-                    const message = input.val().trim();
-                    if (!message) return;
-
-                    this.appendMessage(message, 'user');
-                    input.val('');
-
-                    const loadingId = `loading-${Date.now()}`;
-                    this.appendMessage('Thinking...', 'loading', loadingId);
-
-                    try {
-                        const response = await $.ajax({
-                            url: this.config.endpoints.send,
-                            method: 'POST',
-                            headers: {'X-CSRF-TOKEN': this.config.endpoints.csrfToken},
-                            data: {message}
-                        });
-
-                        if (response.status === 'pending' && response.session_id) {
-                            this.initializeWebSocket(response.session_id);
-                            
-                            this.pendingMessages.set(loadingId, (responseText) => {
-                                this.replaceLoading(responseText, loadingId);
-                            });
-                            
-                            // Fallback timeout
-                            setTimeout(() => {
-                                if (this.pendingMessages.has(loadingId)) {
-                                    this.pendingMessages.delete(loadingId);
-                                    this.pollResponse(response.cache_key, loadingId);
-                                }
-                            }, 60000);
-                        }
-                    } catch (error) {
-                        this.showError('Unable to connect to server', loadingId);
-                    }
-                }
-
-                initializeWebSocket(sessionId) {
-                    // Handle session change
-                    if (this.currentSessionId && this.currentSessionId !== sessionId) {
-                        console.log('Session ID changed, resubscribing...', {old: this.currentSessionId, new: sessionId});
-                        if (this.wsChannel) {
-                            this.pusherConnection.unsubscribe(`chat.${this.currentSessionId}`);
-                            this.wsChannel = null;
-                        }
-                    }
-                    
-                    if (this.wsChannel && this.currentSessionId === sessionId) return;
-                    if (typeof Pusher === 'undefined') return;
-
-                    try {
-                        if (!this.pusherConnection) {
-                            this.pusherConnection = new Pusher(this.config.pusher.key, {
-                                wsHost: this.config.pusher.host,
-                                wsPort: this.config.pusher.port,
-                                forceTLS: false,
-                                disableStats: true,
-                                enabledTransports: ['ws', 'wss'],
-                                cluster: ''
-                            });
-                        }
-                        
-                        const channelName = `chat.${sessionId}`;
-                        this.wsChannel = this.pusherConnection.subscribe(channelName);
-                        this.currentSessionId = sessionId;
-                        
-                        this.wsChannel.bind('message.received', (data) => {
-                            for (let [loadingId, callback] of this.pendingMessages.entries()) {
-                                callback(data.response);
-                                this.pendingMessages.delete(loadingId);
-                                break;
-                            }
-                        });
-                    } catch (error) {
-                        // Silent fail
-                    }
-                }
-
-                async pollResponse(cacheKey, loadingId) {
-                    try {
-                        const response = await $.ajax({
-                            url: this.config.endpoints.response,
-                            method: 'POST',
-                            headers: {'X-CSRF-TOKEN': this.config.endpoints.csrfToken},
-                            data: { cache_key: cacheKey }
-                        });
-
-                        if (response.status === 'complete' || response.response) {
-                            this.replaceLoading(response.response, loadingId);
-                        } else {
-                            setTimeout(() => this.pollResponse(cacheKey, loadingId), 2000);
-                        }
-                    } catch (error) {
-                        this.showError('Failed to get response', loadingId);
-                    }
-                }
-            }
-
-            // Initialize on Load
-            $(document).ready(() => {
-                window.ragChat = new RagChat(RAG_CONFIG);
-            });
-        })();
-        /*==============
-        TO HERE
-        ================*/
-
         // ==========================================
         // Blog Generation Logic (Specific to this page)
         // ==========================================

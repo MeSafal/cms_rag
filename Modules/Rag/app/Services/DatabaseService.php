@@ -19,16 +19,28 @@ class DatabaseService
     /**
      * Process database-needed query using semantic search
      */
-    public function processQuery(string $query, array $conversationContext = []): string
+    public function processQuery(string $query, array $conversationContext = [], ?string $sessionId = null): string
     {
         Log::info("=== DatabaseService START ===");
         Log::info("Query: $query");
         
+        // Helper to broadcast thinking steps
+        $broadcastThinking = function($message) use ($sessionId) {
+            if ($sessionId) {
+                try {
+                    broadcast(new \Modules\Rag\app\Events\ThinkingEvent($sessionId, $message));
+                } catch (\Exception $e) {
+                    Log::error('Thinking Broadcast FAILED: ' . $e->getMessage());
+                }
+            }
+        };
+
         // Get embedding service
         $embeddingService = app(\Modules\Rag\app\Services\EmbeddingService::class);
         Log::info("EmbeddingService loaded");
         
         // Generate embedding for query
+        $broadcastThinking("Generating embedding for query...");
         Log::info("Generating embedding for query...");
         $queryEmbedding = $embeddingService->generateEmbedding($query);
         
@@ -43,6 +55,7 @@ class DatabaseService
         $threshold = config('rag.embeddings.similarity_threshold', 0.3);
         $topK = config('rag.embeddings.top_k', 20);
         
+        $broadcastThinking("Searching knowledge base...");
         Log::info("Finding similar embeddings", [
             'threshold' => $threshold,
             'topK' => $topK
@@ -54,19 +67,12 @@ class DatabaseService
         
         if (empty($matches)) {
             Log::warning("No similar embeddings found above threshold $threshold");
+            $broadcastThinking("No relevant data found.");
             return "No information found. Try rephrasing your question.";
         }
         
-        // Log top matches
-        foreach (array_slice($matches, 0, 3) as $i => $match) {
-            Log::info("Top match #" . ($i+1), [
-                'table' => $match['table_name'],
-                'entity_id' => $match['entity_id'],
-                'similarity' => $match['similarity'],
-                'preview' => substr($match['raw_text'], 0, 100)
-            ]);
-        }
-        
+        $broadcastThinking("Found " . count($matches) . " potential matches. Analyzing...");
+
         // Group by table and get best matches
         $byTable = [];
         foreach ($matches as $match) {
@@ -77,74 +83,53 @@ class DatabaseService
             $byTable[$table][] = $match;
         }
         
-        Log::info("Matches grouped by table", [
-            'tables' => array_keys($byTable),
-            'counts' => array_map('count', $byTable)
-        ]);
-        
-        // Get best table (highest MAX similarity)
+        // Sort tables by their best match score
+        uasort($byTable, function($a, $b) {
+            $maxA = max(array_column($a, 'similarity'));
+            $maxB = max(array_column($b, 'similarity'));
+            return $maxB <=> $maxA; // Descending
+        });
+
+        $data = [];
         $bestTable = null;
-        $bestScore = 0;
-        
+
+        // Iterate through tables to find actual data
         foreach ($byTable as $table => $tableMatches) {
-            // Use the highest similarity score found for this table
-            // This is better for specific queries (e.g. finding one person in teams)
-            // vs general queries (e.g. finding multiple services)
-            $maxScore = max(array_column($tableMatches, 'similarity'));
+            $tableConfig = config("rag.allowed_tables.$table");
+            if (!$tableConfig) {
+                continue;
+            }
             
-            Log::info("Table similarity", [
-                'table' => $table,
-                'max_score' => $maxScore,
-                'match_count' => count($tableMatches)
-            ]);
+            // Use friendly display name for user-facing messages
+            $displayName = $tableConfig['display_name'] ?? $table;
+            $broadcastThinking("Searching $displayName...");
             
-            if ($maxScore > $bestScore) {
-                $bestScore = $maxScore;
+            $entityIds = array_unique(array_column($tableMatches, 'entity_id'));
+            $idColumn = $tableConfig['id_column'];
+            
+            $results = DB::table($table)
+                ->whereIn($idColumn, $entityIds)
+                ->limit(config('rag.max_results', 5))
+                ->get()
+                ->toArray();
+                
+            if (!empty($results)) {
+                $data = $results;
                 $bestTable = $table;
+                $broadcastThinking("Found relevant $displayName!");
+                break; // Stop at the first table that yields results
+            } else {
+                $broadcastThinking("No data in $displayName. Trying other sources...");
             }
         }
         
-        Log::info("Best table selected", [
-            'table' => $bestTable,
-            'avg_similarity' => $bestAvg
-        ]);
-        
-        // Fetch actual data from database
-        $entityIds = array_unique(array_column($byTable[$bestTable], 'entity_id'));
-        
-        Log::info("Fetching data from database", [
-            'table' => $bestTable,
-            'entity_ids' => $entityIds
-        ]);
-        
-        $tableConfig = config("rag.allowed_tables.$bestTable");
-        if (!$tableConfig) {
-            Log::error("Table config not found", ['table' => $bestTable]);
-            return "Configuration error for table: $bestTable";
-        }
-        
-        $idColumn = $tableConfig['id_column'];
-        
-        $data = DB::table($bestTable)
-            ->whereIn($idColumn, $entityIds)
-            ->limit(config('rag.max_results', 5))
-            ->get()
-            ->toArray();
-        
-        Log::info("Data fetched from database", [
-            'count' => count($data),
-            'data_preview' => count($data) > 0 ? json_encode($data[0]) : 'empty'
-        ]);
-        
         if (empty($data)) {
-            Log::warning("No data found in database for entity IDs", [
-                'table' => $bestTable,
-                'ids' => $entityIds
-            ]);
+            Log::warning("No data found in database for any matches");
             return "No information found. Try rephrasing your question.";
         }
         
         // Format response
+        $broadcastThinking("Formatting response...");
         Log::info("Formatting response with AI...");
         $response = $this->formatResponse($query, $data, $bestTable, $conversationContext);
         Log::info("Response formatted", ['length' => strlen($response)]);
@@ -166,6 +151,7 @@ class DatabaseService
         // Add URLs to each result
         foreach ($data as &$item) {
             if (isset($item->$idColumn)) {
+                // TODO: Add URL generation logic here
                 $item->url = "$appUrl/$table/{$item->$idColumn}";
             }
         }

@@ -18,16 +18,10 @@ class IntentClassifier
         $lowerQuery = strtolower(trim($query));
         $appName = strtolower(config('app.name', ''));
         
-        // Check if similar query was recently answered in context
-        if ($this->hasRecentAnswer($query, $conversationContext)) {
-            Log::info("Intent Classification (context exists): casual");
-            return 'casual';
-        }
-        
         // Hardcoded greetings and identity questions from config
         $casualPhrases = config('rag.casual_phrases', []);
         
-        // Exact match
+        // Exact match for greetings
         if (in_array($lowerQuery, $casualPhrases)) {
             Log::info("Intent Classification (hardcoded - exact match): casual");
             return 'casual';
@@ -41,11 +35,11 @@ class IntentClassifier
             }
         }
         
-        // Hardcoded site-related keywords from config
+        // Hardcoded site-related keywords from config (PRIORITY OVER CONTEXT)
         $siteKeywords = config('rag.site_keywords', []);
         foreach ($siteKeywords as $keyword) {
             if (str_contains($lowerQuery, $keyword)) {
-                Log::info("Intent Classification (hardcoded - site keyword): db_needed");
+                Log::info("Intent Classification (hardcoded - site keyword '$keyword'): db_needed");
                 return 'db_needed';
             }
         }
@@ -54,6 +48,30 @@ class IntentClassifier
         if ($appName && str_contains($lowerQuery, $appName)) {
             Log::info("Intent Classification (hardcoded - app name '$appName'): db_needed");
             return 'db_needed';
+        }
+
+        // Check for team/company questions
+        $companyKeywords = ['managing director', 'ceo', 'founder', 'team', 'staff', 'employees', 'boss', 'director', 'manager'];
+        foreach ($companyKeywords as $keyword) {
+            if (str_contains($lowerQuery, $keyword)) {
+                Log::info("Intent Classification (hardcoded - company keyword '$keyword'): db_needed");
+                return 'db_needed';
+            }
+        }
+        
+        // Check for course/class/training/coaching questions - CRITICAL FOR ACCURACY
+        $courseKeywords = ['class', 'classes', 'course', 'courses', 'training', 'workshop', 'workshops', 'coaching', 'program', 'programs', 'teach', 'learn'];
+        foreach ($courseKeywords as $keyword) {
+            if (str_contains($lowerQuery, $keyword)) {
+                Log::info("Intent Classification (hardcoded - course keyword '$keyword'): db_needed");
+                return 'db_needed';
+            }
+        }
+        
+        // Check if similar query was recently answered in context (ONLY FOR FOLLOW-UPS)
+        if ($this->hasRecentAnswer($query, $conversationContext)) {
+            Log::info("Intent Classification (context exists): casual");
+            return 'casual';
         }
 
         // Fallback to AI classification

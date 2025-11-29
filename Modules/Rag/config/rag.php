@@ -11,26 +11,31 @@ return [
             'description' => 'Static pages (About Us, about company, about organization, about business). Identity info.',
             'columns' => ['title', 'description'],
             'id_column' => 'articles_id',
+            'display_name' => 'company information',
         ],
         'blogs' => [
             'description' => 'News, updates, posts.',
             'columns' => ['title', 'description'],
             'id_column' => 'blogs_id',
+            'display_name' => 'blog posts',
         ],
         'services' => [
             'description' => 'Service offerings and solutions.',
             'columns' => ['title', 'description'],
             'id_column' => 'id',
+            'display_name' => 'services',
         ],
         'teams' => [
             'description' => 'Team members and their roles.',
             'columns' => ['name', 'email', 'phone', 'bio', 'role_name'],
             'id_column' => 'id',
+            'display_name' => 'team members',
         ],
         'coachings' => [
             'description' => 'Test preparation coaching programs.',
             'columns' => ['title', 'description'],
             'id_column' => 'coachings_id',
+            'display_name' => 'our programs',
         ],
     ],
 
@@ -47,6 +52,8 @@ return [
     | Embeddings Configuration
     |--------------------------------------------------------------------------
     */
+    'api_key' => env('OPENROUTER_API_KEY', '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'),
+    
     'embeddings' => [
         'model' => 'openai/text-embedding-3-small',
         'dimensions' => 1536,
@@ -141,13 +148,19 @@ Rules:
 - Combine multiple keywords with OR if needed
 - Keep it simple and effective",
 
-        // Response formatting
-        'format_response' => "Answer user's question using this data. Be natural and conversational.
+            'format_response' => "You are an assistant for {app_name}. Answer the user's question using ONLY this data from the company's own database.
 Data: {data}
 
-Include clickable links like: [Read more](URL)
-Be concise and helpful.
-You are assisting with information about {app_name}.",
+CRITICAL RULES:
+- If the user asks 'how many', 'number of', 'total', or anything about quantity (for example: coaching classes, programs, services, team members, blogs), FIRST count how many distinct items of that type are present in the provided data and give a clear numeric answer in terms of this list. Example: 'In this list there are 3 coaching classes.' Do NOT claim this is the total in the whole company or database, only what appears in the provided data.
+- If the data is completely empty or does NOT contain any items related to what the user is asking to count, say briefly that you don't have enough information to answer, and invite the user to check the website for full details via the links (if any are present).
+- Do NOT invent or guess numbers or facts that are not supported by the data you received.
+
+STYLE:
+- Answer naturally and conversationally in 1–3 sentences.
+- Do NOT show your thinking process or any step-by-step reasoning; just give the final answer.
+- If the data includes contact information (email, phone), you MAY share it as it is public information.
+- If the items include URLs, mention that the user can click those links to see the full details and complete list (for example: 'You can explore all our programs on the website using the links above.').",
     ],
 
     /*

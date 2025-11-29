@@ -23,10 +23,14 @@ class EmbeddingService
     public function generateEmbedding(string $text): ?array
     {
         try {
-            $apiKey = env('OPENROUTER_API_KEY');
+            $apiKey = config('rag.api_key');
             if (!$apiKey) {
                 throw new Exception('OpenRouter API key not configured');
             }
+
+            // Log API key for debugging (show last 8 chars only)
+            $maskedKey = substr($apiKey, 0, 10) . '...' . substr($apiKey, -8);
+            Log::info("EmbeddingService - Using API Key", ['key' => $maskedKey]);
 
             $ch = curl_init('https://openrouter.ai/api/v1/embeddings');
             

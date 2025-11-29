@@ -15,11 +15,15 @@ class RagService
      */
     public function callAI(array $messages, float $temperature = 0.7, int $maxTokens = 1000): string
     {
-        $apiKey = env('OPENROUTER_API_KEY');
+        $apiKey = config('rag.api_key');
         if (!$apiKey) {
             Log::error("OpenRouter API key not configured");
             throw new Exception('OpenRouter API key not configured');
         }
+
+        // Log API key for debugging (show last 8 chars only)
+        $maskedKey = substr($apiKey, 0, 10) . '...' . substr($apiKey, -8);
+        Log::info("Using OpenRouter API Key", ['key' => $maskedKey]);
 
         Log::info("OpenRouter API Call", [
             'messages_count' => count($messages),
