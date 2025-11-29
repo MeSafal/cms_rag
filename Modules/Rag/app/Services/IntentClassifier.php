@@ -60,7 +60,7 @@ class IntentClassifier
         }
         
         // Check for course/class/training/coaching questions - CRITICAL FOR ACCURACY
-        $courseKeywords = ['class', 'classes', 'course', 'courses', 'training', 'workshop', 'workshops', 'coaching', 'program', 'programs', 'teach', 'learn'];
+        $courseKeywords = ['class', 'classes', 'course', 'courses', 'training', 'workshop', 'workshops', 'coaching', 'program', 'programs', 'teach', 'learn', 'service', 'services', 'offering', 'offerings'];
         foreach ($courseKeywords as $keyword) {
             if (str_contains($lowerQuery, $keyword)) {
                 Log::info("Intent Classification (hardcoded - course keyword '$keyword'): db_needed");
@@ -68,11 +68,18 @@ class IntentClassifier
             }
         }
         
-        // Check if similar query was recently answered in context (ONLY FOR FOLLOW-UPS)
-        if ($this->hasRecentAnswer($query, $conversationContext)) {
-            Log::info("Intent Classification (context exists): casual");
-            return 'casual';
+        // Check for action requests that imply database lookup
+        $actionKeywords = ['check', 'show me', 'tell me', 'list', 'search', 'find', 'display', 'what are'];
+        foreach ($actionKeywords as $keyword) {
+            if (str_contains($lowerQuery, $keyword)) {
+                Log::info("Intent Classification (hardcoded - action keyword '$keyword'): db_needed");
+                return 'db_needed';
+            }
         }
+        
+        // REMOVED: hasRecentAnswer check
+        // Reason: If user asks about classes/services, we should ALWAYS check DB to be safe.
+        // Relying on context often leads to "I can't check DB" responses in casual mode.
 
         // Fallback to AI classification
         return $this->classifyWithAI($query, $conversationContext);

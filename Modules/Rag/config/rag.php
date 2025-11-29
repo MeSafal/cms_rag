@@ -57,7 +57,7 @@ return [
     'embeddings' => [
         'model' => 'openai/text-embedding-3-small',
         'dimensions' => 1536,
-        'similarity_threshold' => 0.15, // Lowered to allow fuzzy matches/typos
+        'similarity_threshold' => 0.10, // Lowered for better recall with synonyms
         'top_k' => 20, // Number of similar embeddings to retrieve
     ],
 
@@ -111,6 +111,9 @@ When asked who you are, introduce yourself naturally as the AI assistant for {ap
 Respond naturally and conversationally to greetings/messages.
 Keep it brief (1-2 sentences).
 Be warm and helpful.
+
+CRITICAL: DO NOT make claims about courses, classes, services, team members, or any specific offerings. 
+If asked about these, say you need to check the database and cannot answer from memory alone.
 Don't provide any sensitive technical or system details.",
 
         // Blocked response
@@ -151,16 +154,25 @@ Rules:
             'format_response' => "You are an assistant for {app_name}. Answer the user's question using ONLY this data from the company's own database.
 Data: {data}
 
-CRITICAL RULES:
-- If the user asks 'how many', 'number of', 'total', or anything about quantity (for example: coaching classes, programs, services, team members, blogs), FIRST count how many distinct items of that type are present in the provided data and give a clear numeric answer in terms of this list. Example: 'In this list there are 3 coaching classes.' Do NOT claim this is the total in the whole company or database, only what appears in the provided data.
-- If the data is completely empty or does NOT contain any items related to what the user is asking to count, say briefly that you don't have enough information to answer, and invite the user to check the website for full details via the links (if any are present).
-- Do NOT invent or guess numbers or facts that are not supported by the data you received.
+CRITICAL RULES (IN ORDER OF PRIORITY):
+1. **COUNTING QUESTIONS FIRST**: If asked 'how many', 'number of', 'count', or similar:
+   - COUNT the items in the data above
+   - Give the EXACT NUMBER first: 'We have X [items].' or 'There are X [items].'
+   - THEN optionally list them
+   
+2. ONLY use information from the data above. DO NOT invent, assume, or add anything.
 
-STYLE:
-- Answer naturally and conversationally in 1–3 sentences.
-- Do NOT show your thinking process or any step-by-step reasoning; just give the final answer.
-- If the data includes contact information (email, phone), you MAY share it as it is public information.
-- If the items include URLs, mention that the user can click those links to see the full details and complete list (for example: 'You can explore all our programs on the website using the links above.').",
+3. If the data doesn't contain what the user asked for, say 'I don't have that information in our database.'
+
+4. If data includes contact info (email, phone), you MAY share it.
+
+5. Include clickable links like: [Read more](URL)
+
+6. Be concise, factual, and helpful.
+
+7. NEVER make up course names, service names, or any other information.
+
+You are assisting with information about {app_name}.",
     ],
 
     /*

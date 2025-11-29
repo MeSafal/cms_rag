@@ -39,10 +39,14 @@ class DatabaseService
         $embeddingService = app(\Modules\Rag\app\Services\EmbeddingService::class);
         Log::info("EmbeddingService loaded");
         
-        // Generate embedding for query
-        $broadcastThinking("Generating embedding for query...");
+        // Expand query with synonyms for better matching
+        $expandedQuery = $this->expandQueryWithSynonyms($query);
+        Log::info("Query expanded", ['original' => $query, 'expanded' => $expandedQuery]);
+        
+        // Generate embedding for expanded query
+        $broadcastThinking("Searching knowledge base...");
         Log::info("Generating embedding for query...");
-        $queryEmbedding = $embeddingService->generateEmbedding($query);
+        $queryEmbedding = $embeddingService->generateEmbedding($expandedQuery);
         
         if (!$queryEmbedding) {
             Log::error("Failed to generate embedding for query");
@@ -114,12 +118,19 @@ class DatabaseService
                 ->toArray();
                 
             if (!empty($results)) {
-                $data = $results;
-                $bestTable = $table;
-                $broadcastThinking("Found relevant $displayName!");
-                break; // Stop at the first table that yields results
-            } else {
-                $broadcastThinking("No data in $displayName. Trying other sources...");
+                // Add table name to each result for context
+                foreach ($results as $key => $result) {
+                    $results[$key]->source_table = $displayName;
+                }
+                
+                // Merge results instead of replacing
+                $data = array_merge($data, $results);
+                $broadcastThinking("Found relevant info in $displayName!");
+                
+                // If we have enough data (e.g. > 10 items), we can stop
+                if (count($data) >= 10) {
+                    break;
+                }
             }
         }
         
@@ -131,7 +142,7 @@ class DatabaseService
         // Format response
         $broadcastThinking("Formatting response...");
         Log::info("Formatting response with AI...");
-        $response = $this->formatResponse($query, $data, $bestTable, $conversationContext);
+        $response = $this->formatResponse($query, $data, $conversationContext);
         Log::info("Response formatted", ['length' => strlen($response)]);
         Log::info("=== DatabaseService END ===");
         
@@ -141,28 +152,25 @@ class DatabaseService
     /**
      * Format database results into natural language response
      */
-    protected function formatResponse(string $query, array $data, string $table, array $context): string
+    protected function formatResponse(string $query, array $data, array $context): string
     {
         $appUrl = env('APP_URL', 'http://localhost');
         $appName = config('app.name', 'this website');
-        $tableConfig = config("rag.allowed_tables.$table");
-        $idColumn = $tableConfig['id_column'];
 
-        // Add URLs to each result
+        // Add URLs to each result (if possible)
         foreach ($data as &$item) {
-            if (isset($item->$idColumn)) {
-                // TODO: Add URL generation logic here
-                $item->url = "$appUrl/$table/{$item->$idColumn}";
+            // Try to guess ID column if source_table is present
+            if (isset($item->source_table)) {
+                // Logic to add URLs could go here if needed
             }
         }
 
-        $dataJson = json_encode($data);
-        
-        $prompt = config('rag.prompts.format_response');
-        $prompt = str_replace('{data}', $dataJson, $prompt);
-        $prompt = str_replace('{app_name}', $appName, $prompt);
+        // Prepare system prompt
+        $systemPrompt = config('rag.prompts.format_response');
+        $systemPrompt = str_replace('{app_name}', $appName, $systemPrompt);
+        $systemPrompt = str_replace('{data}', json_encode($data, JSON_PRETTY_PRINT), $systemPrompt);
 
-        $messages = [['role' => 'system', 'content' => $prompt]];
+        $messages = [['role' => 'system', 'content' => $systemPrompt]];
         
         if (!empty($context)) {
             $messages = array_merge($messages, array_slice($context, -4));
@@ -171,5 +179,38 @@ class DatabaseService
         $messages[] = ['role' => 'user', 'content' => $query];
 
         return $this->ragService->callAI($messages, 0.7, 300);
+    }
+
+    /**
+     * Expand query with synonyms for better semantic matching
+     */
+    protected function expandQueryWithSynonyms(string $query): string
+    {
+        $synonymMap = [
+            'class' => 'class coaching course training workshop program',
+            'classes' => 'classes coaching courses training workshops programs',
+            'course' => 'course class coaching training workshop program',
+            'courses' => 'courses classes coaching training workshops programs',
+            'workshop' => 'workshop class course training program',
+            'workshops' => 'workshops classes courses training programs',
+            'training' => 'training class course workshop program coaching',
+            'program' => 'program class course workshop training coaching',
+            'programs' => 'programs classes courses workshops training coaching',
+            'service' => 'service offering solution product',
+            'services' => 'services offerings solutions products',
+        ];
+
+        $lowerQuery = strtolower($query);
+        
+        // Check if query contains any synonym and expand it
+        foreach ($synonymMap as $word => $synonyms) {
+            if (str_contains($lowerQuery, $word)) {
+                // Replace the word with its expanded synonyms
+                $query = str_ireplace($word, $synonyms, $query);
+                break; // Only expand the first match to avoid over-expansion
+            }
+        }
+
+        return $query;
     }
 }
