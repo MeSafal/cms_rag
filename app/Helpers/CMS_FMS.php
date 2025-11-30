@@ -480,6 +480,24 @@ class CMS_FMS
     /**
      * Shared utility: resolve any modelName:modelId pair to a model instance or null.
      */
+
+    //before module support
+    // protected function resolveModel(string $modelName, $modelId)
+    // {
+    //     $class = "App\\Models\\{$modelName}";
+
+    //     if (!class_exists($class)) {
+    //         return null;
+    //     }
+    //     $instance = new $class;
+    //     $pk = $instance->getKeyName();
+
+    //     return $class::where($pk, $modelId)
+    //         ->where('status', 1)
+    //         ->first();
+    // }
+
+    //with module support
     protected function resolveModel(string $modelName, $modelId, ?string $moduleName = null)
     {
         if ($moduleName) {
