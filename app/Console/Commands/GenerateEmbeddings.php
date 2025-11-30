@@ -15,24 +15,24 @@ class GenerateEmbeddings extends Command
     {
         $embeddingService = app(EmbeddingService::class);
         $tableName = $this->argument('table');
-        
+
         $allowedTables = config('rag.allowed_tables', []);
         $tables = $tableName ? [$tableName => $allowedTables[$tableName]] : $allowedTables;
 
         foreach ($tables as $table => $config) {
             if (!isset($config['columns'])) continue;
-            
+
             $this->info("Processing table: $table");
-            
+
             $records = DB::table($table)->get();
             $this->info("Found {$records->count()} records");
-            
+
             $bar = $this->output->createProgressBar($records->count());
-            
+
             foreach ($records as $record) {
                 $idColumn = $config['id_column'] ?? 'id';
                 $entityId = $record->$idColumn;
-                
+
                 // Concatenate all searchable columns
                 $textParts = [];
                 foreach ($config['columns'] as $column) {
@@ -40,12 +40,12 @@ class GenerateEmbeddings extends Command
                         $textParts[] = "$column: {$record->$column}";
                     }
                 }
-                
+
                 $rawText = implode(' | ', $textParts);
-                
+
                 // Generate embedding
                 $embedding = $embeddingService->generateEmbedding($rawText);
-                
+
                 if ($embedding) {
                     // Store as single combined embedding
                     $embeddingService->storeEmbedding($table, $entityId, 'combined', $rawText, $embedding);
@@ -53,15 +53,15 @@ class GenerateEmbeddings extends Command
                 } else {
                     $this->error("\nFailed to generate embedding for $table ID: $entityId");
                 }
-                
+
                 // Rate limit - 1 request per second to avoid API limits
                 sleep(1);
             }
-            
+
             $bar->finish();
             $this->newLine(2);
         }
-        
+
         $this->info('Embeddings generated successfully!');
         return 0;
     }
